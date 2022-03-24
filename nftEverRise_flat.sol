@@ -220,7 +220,7 @@ interface InftEverRise {
 
 // File: EverRise-v3/Abstract/virtualToken.sol
 
-contract virtualToken is Ownable, IERC20, IERC20Metadata {
+abstract contract virtualToken is Ownable, IERC20, IERC20Metadata {
     InftEverRise public veEverRise;
 
     uint8 public constant decimals = 18;
@@ -231,16 +231,6 @@ contract virtualToken is Ownable, IERC20, IERC20Metadata {
         name = _name;
         symbol = _symbol;
         veEverRise = InftEverRise(owner);
-    }
-
-    function totalSupply() external view returns (uint256) {
-        return veEverRise.totalRewardsUnclaimed();
-    }
-
-    function balanceOf(address account) external view returns (uint256) {
-        if (account == owner) return 0;
-
-        return veEverRise.unclaimedRewardsBalance(account);
     }
 
     function transferFrom(address sender, address recipient, uint256 amount)
@@ -300,6 +290,15 @@ and help your project grow: https://www.everrise.com
 */
 
 contract claimRise is virtualToken("EverRise Rewards", "claimRISE") {
+    function totalSupply() override external view returns (uint256) {
+        return veEverRise.totalRewardsUnclaimed();
+    }
+
+    function balanceOf(address account) override external view returns (uint256) {
+        if (account == owner) return 0;
+        
+        return veEverRise.unclaimedRewardsBalance(account);
+    }
 }
 // File: EverRise-v3/veRISE.sol
 
@@ -326,6 +325,15 @@ and help your project grow: https://www.everrise.com
 */
 
 contract veRise is virtualToken("Vote-escrowed EverRise", "veRISE") {
+    function totalSupply() override external view returns (uint256) {
+        return veEverRise.totalAmountVoteEscrowed();
+    }
+
+    function balanceOf(address account) override external view returns (uint256) {
+        if (account == owner) return 0;
+
+        return veEverRise.voteEscrowedBalance(account);
+    }
 }
 
 // File: EverRise-v3/Interfaces/IEverRoyaltySplitter.sol
@@ -982,9 +990,8 @@ contract nftEverRise is nftEverRiseConfigurable {
 
         roundingCheck(amount, false);
         numOfMonths = stakeDetails.numOfMonths;
-        uint256 extraVeTokens = amount * numOfMonths;
-        // Give new tokens for extra amount
-        _transfer(address(this), staker, extraVeTokens, true);
+
+        increaseVeAmount(staker, amount, numOfMonths, true);
         
         // Take amount off the withdrawnAmount, "repairing" the stake
         if (amount > stakeDetails.withdrawnAmount) {
@@ -1011,9 +1018,9 @@ contract nftEverRise is nftEverRiseConfigurable {
         if (numOfMonths > maxStakeMonths) revert AmountOutOfRange();
 
         uint8 extraMonths = numOfMonths - stakeDetails.numOfMonths;
-        uint256 extraVeTokens = (stakeDetails.initialTokenAmount - stakeDetails.withdrawnAmount) * extraMonths;
-        // Give new tokens for time period
-        _transfer(address(this), staker, extraVeTokens, true);
+        uint96 amount = (stakeDetails.initialTokenAmount - stakeDetails.withdrawnAmount);
+        
+        increaseVeAmount(staker, amount, extraMonths, true);
         
         stakeDetails.numOfMonths = numOfMonths;
         // Relock
@@ -1100,21 +1107,22 @@ contract nftEverRise is nftEverRiseConfigurable {
 
         uint8 numOfMonths = stakeDetails0.numOfMonths;
         if (!unlocked0) {
+            uint8 extraMonths = 0;
+            uint96 amount = 0;
             // Must both be locked
             uint8 numOfMonths1 = stakeDetails1.numOfMonths;
-            uint256 extraVeTokens = 0;
             if (numOfMonths > numOfMonths1) {
-                uint8 extraMonths = numOfMonths - numOfMonths1;
-                extraVeTokens = (stakeDetails1.initialTokenAmount - stakeDetails1.withdrawnAmount) * extraMonths;
+                extraMonths = numOfMonths - numOfMonths1;
+                amount = (stakeDetails1.initialTokenAmount - stakeDetails1.withdrawnAmount);
             } else if (numOfMonths < numOfMonths1) {
-                uint8 extraMonths = numOfMonths1 - numOfMonths;
-                extraVeTokens = (stakeDetails0.initialTokenAmount - stakeDetails0.withdrawnAmount) * extraMonths;
+                extraMonths = numOfMonths1 - numOfMonths;
+                amount = (stakeDetails0.initialTokenAmount - stakeDetails0.withdrawnAmount);
                 numOfMonths = numOfMonths1;
             }
 
-            if (extraVeTokens > 0) {
+            if (extraMonths > 0 && amount > 0) {
                 // Give new tokens for time period
-                _transfer(address(this), staker, extraVeTokens, true);
+                increaseVeAmount(staker, amount, extraMonths, true);
             }
         }
 
