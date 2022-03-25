@@ -134,6 +134,8 @@ interface InftEverRise {
     function increaseStake(address staker, uint256 nftId, uint96 amount) external returns (uint32 newNftId, uint96 original, uint8 numOfMonths);
     function splitStake(uint256 id, uint96 amount) external payable returns (uint32 newNftId0, uint32 newNftId1);
     function claimAchievement(address staker, uint256 nftId) external returns (uint32 newNftId);
+    function stakeCreateCost() external view returns (uint256);
+    function stakeBridgeFee() external view returns (uint256);
 }
 // File: EverRise-v3/Interfaces/IEverRiseWallet.sol
 
@@ -290,7 +292,6 @@ contract EverRiseRoles is Ownable {
         Liquidity, 
         Fees,
         Exchanges,
-        Nfts,
         CrossChainBuyback,
         Upgrader
     }
@@ -315,18 +316,12 @@ contract EverRiseRoles is Ownable {
         roles[Role.Liquidity][deployer] = true;
         roles[Role.Fees][deployer] = true;
         roles[Role.Exchanges][deployer] = true;
-        roles[Role.Nfts][deployer] = true;
-    }
-    
-    function hasRole(Role role, address controller) public view returns (bool) {
-        return roles[role][controller];
     }
 
     function addControlRole(address newController, Role role) external onlyOwner
     {
         if (role == Role.NotValidRole) revert NotZero();
         if (newController == address(0)) revert NotZeroAddress();
-        if (roles[role][newController]) revert InvalidAddress();
 
         roles[role][newController] = true;
 
@@ -337,7 +332,6 @@ contract EverRiseRoles is Ownable {
     {
         if (role == Role.NotValidRole) revert NotZero();
         if (oldController == address(0)) revert NotZeroAddress();
-        if (!roles[role][oldController]) revert InvalidAddress();
 
         roles[role][oldController] = false;
 
@@ -434,7 +428,7 @@ library EverRiseLib {
 
 interface IEverDrop {
     function mirgateV1V2Holder(address holder, uint96 amount) external returns(bool);
-    function mirgateV2Staker(address toAddress, uint96 amount, uint96 depositTokens, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards) external returns(uint256 nftId);
+    function mirgateV2Staker(address toAddress, uint96 rewards, uint96 depositTokens, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount) external returns(uint256 nftId);
 }
 // File: EverRise-v3/Interfaces/IERC20-Token.sol
 
@@ -769,7 +763,6 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
 // File: EverRise-v3/Interfaces/IEverRise.sol
 
 interface IEverRise is IERC20Metadata {
-    function stakeCreateCost() external view returns (uint256);
     function totalBuyVolume() external view returns (uint256);
     function totalSellVolume() external view returns (uint256);
     function holders() external view returns (uint256);
@@ -778,6 +771,7 @@ interface IEverRise is IERC20Metadata {
     function isWalletLocked(address fromAddress) external view returns (bool);
     function setApprovalForAll(address fromAddress, address operator, bool approved) external;
     function isApprovedForAll(address account, address operator) external view returns (bool);
+    function isExcludedFromFee(address account) external view returns (bool);
 
     function approvals(address operator) external view returns (ApprovalChecks memory);
 }
@@ -794,7 +788,6 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
 
     event LiquidityFeeUpdated(uint256 newValue);
     event TransactionCapUpdated(uint256 newValue);
-    event StakeCreateCostUpdated(uint256 newValue);
     event MinStakeSizeUpdated(uint256 newValue);
 
     event BusinessDevelopmentDivisorUpdated(uint256 newValue);
@@ -860,7 +853,6 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
     uint256 internal _numberOfBlocks = 1000;
     uint256 internal _minBuybackAmount = 1 * 10**18 / (10**1);
     uint256 internal _maxBuybackAmount = 1 * 10**18;
-    uint256 public stakeCreateCost = 1 * 10**18 / (10**2);
 
     // Booleans are more expensive than uint256 or any type that takes up a full
     // word because each write operation emits an extra SLOAD to first read the
@@ -878,7 +870,7 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
     uint256 internal _inSwap = _FALSE;
     uint256 internal _swapEnabled = _FALSE;
     uint256 internal _buyBackEnabled = _FALSE;
-    uint256 internal _liquidityLocked = _FALSE;
+    uint256 internal _liquidityLocked = _TRUE;
     uint256 internal _offchainBalanceExcluded = _FALSE;
     uint256 internal _autoBurn = _FALSE;
     uint256 internal _burnableTokens = 1;
@@ -985,17 +977,6 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
 
         _minimumTokensBeforeSwap = uint96(minimumTokensBeforeSwap * (10**uint256(decimals)));
         emit MinTokensBeforeSwapUpdated(minimumTokensBeforeSwap);
-    }
-
-    function setStakeCreateCost(uint256 _stakeCreateCost, uint256 numOfDecimals)
-        external
-        onlyController(Role.Staking)
-    {
-        // Catch typos, if decimals are pre-added
-        if (_stakeCreateCost > 1_000_000_000) revert AmountOutOfRange();
-
-        stakeCreateCost = _stakeCreateCost * (10**18) / (10**numOfDecimals);
-        emit StakeCreateCostUpdated(_stakeCreateCost);
     }
 
     function setBuybackUpperLimit(uint256 buyBackLimit, uint256 numOfDecimals)
@@ -1167,6 +1148,7 @@ struct TransferDetails {
     uint96 balance1;
     address origin;
 
+    address from;
     uint32 blockNumber;
 }
 
@@ -1237,7 +1219,6 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         emit Transfer(address(0), address(this), _totalSupply);
 
         _holders = 1;
-        setLiquidityLock(true);
     }
 
     // Function to receive ETH when msg.data is be empty
@@ -1269,14 +1250,14 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         if (account == everBridgeVault && _offchainBalanceExcluded == _TRUE) return 0;
 
         uint256 balance = _balanceOf(account);
-        if (
-            _inSwap != _TRUE &&
+        if (_inSwap != _TRUE &&
             _lastTransfer.blockNumber == uint32(block.number) &&
-            account == _lastTransfer.to
+            account.isContract() &&
+            !_isExcludedFromFee[account]
         ) {
             // Balance being checked is same address as last to in _transfer
             // check if likely same txn and a Liquidity Add
-            _validateIfLiquidityChange(account, uint112(balance), _lastTransfer);
+            _validateIfLiquidityChange(account, uint112(balance));
         }
 
         return balance;
@@ -1359,12 +1340,12 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         // and transfers to and from EverRise Ecosystem contracts
         // are not considered LP adds
         if (notInSwap) {
-            if (isIgnoredAddress || hasRole(Role.Liquidity, _msgSender())) {
-                // Clear transfer data
-                _clearTransferIfNeeded();
+            if (isIgnoredAddress) {
+                // Just set blocknumber to 1 to clear, to save gas on changing back
+                _lastTransfer.blockNumber = 1;
             } else {
                 // Not in a swap during a LP add, so record the transfer details
-                _recordPotentialLiquidityAddTransaction(to);
+                _recordPotentialLiquidityChangeTransaction(from, to);
             }
         }
 
@@ -1535,7 +1516,7 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
 
     function enterStaking(uint96 amount, uint8 numOfMonths, bytes32 stakeName) external payable walletLock(_msgSender()) returns (uint32 nftId) {
         address staker = _msgSender();
-        if (msg.value < stakeCreateCost) revert NotEnoughToCoverStakeFee();
+        if (msg.value < stakeToken.stakeCreateCost()) revert NotEnoughToCoverStakeFee();
 
         nftId = stakeToken.enterStaking(staker, amount, numOfMonths, stakeName);
 
@@ -1652,7 +1633,7 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
 
     // Liquidity
 
-    function _recordPotentialLiquidityAddTransaction(address to) private {
+    function _recordPotentialLiquidityChangeTransaction(address from, address to) private {
         uint96 balance0 = uint96(_balanceOf(to));
         (address token0, address token1) = to.pairTokens();
         if (token1 == address(this)) {
@@ -1660,59 +1641,72 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
             token1 = token0;
         }
 
-        uint96 balance1;
         if (token1 == address(0)) {
-            // Not a LP pair, or not yet (contract being created)
-            balance1 = 0;
-        } else {
-            balance1 = uint96(IERC20(token1).balanceOf(to));
+            // Not LP pair, just set blocknumber to 1 to clear, to save gas on changing back
+            _lastTransfer.blockNumber = 1;
+            return;
         }
-
+        
+        uint96 balance1 = uint96(IERC20(token1).balanceOf(to));
         _lastTransfer = TransferDetails({
             balance0: balance0,
             to: to,
             balance1: balance1,
             origin: tx.origin,
+            from: from,
             blockNumber: uint32(block.number)
         });
     }
 
-    function _clearTransferIfNeeded() private {
-        // Not Liquidity Add or is owner, clear data from same block to allow balanceOf
-        if (_lastTransfer.blockNumber == uint32(block.number)) {
-            // Don't need to clear if different block
-            // Just set blocknumber to 1 to clear, to save gas on changing back
-            _lastTransfer.blockNumber = 1;
-        }
-    }
-
     // account must be recorded in _transfer and same block
-    function _validateIfLiquidityChange(address account, uint112 balance0, TransferDetails storage lastTransfer) private view {
-        // Test to see if this tx is part of a Liquidity Add
-        // using the data recorded in _transfer
-        if (lastTransfer.origin == tx.origin) {
-            // May be same transaction as _transfer, check LP balances
-            (address token0, address token1) = account.pairTokens();
+    function _validateIfLiquidityChange(address account, uint112 balance0) private view {
+        if (_lastTransfer.origin == tx.origin) {
+            // Not same txn
+            return;
+        }
 
-            if (token1 == address(this)) {
-                // Switch token so token1 is always other side of pair
-                token1 = token0;
+        // May be same transaction as _transfer
+        (address token0, address token1) = account.pairTokens();
+        // Not LP pair
+        if (token1 == address(0)) return;
+        bool switchTokens;
+        if (token1 == address(this)) {
+            // Switch token so token1 is always other side of pair
+            token1 = token0;
+            switchTokens = true;
+        } else if (token1 != address(this)) {
+            // Not LP for this token
+            return;
+        }
+
+        uint256 balance1 = IERC20(token1).balanceOf(account);
+
+        // Check if LP change using the data recorded in _transfer
+        if (account == _lastTransfer.from) {
+            // Test to see if this tx is part of a Liquidity burn
+            try IUniswapV2Pair(account).getReserves() returns (uint112 reserve0, uint112 reserve1,uint32) {
+                if (switchTokens) {
+                    (reserve0, reserve1) = (reserve1, reserve0);
+                }
+
+                if (balance1 < reserve1 && balance0 < reserve0) {
+                    // Both pair balances have decreased, this is a Liquidty Remove
+                    if (_liquidityLocked == _TRUE) 
+                    {
+                        revert LiquidityIsLocked();
+                    }
+                }
+            } catch {
+                // Not LP
+                return;
             }
-
-            // Not LP pair
-            if (token1 == address(0)) return;
-
-            uint112 balance1 = uint112(IERC20(token1).balanceOf(account));
-
-            if (balance0 > lastTransfer.balance0 &&
-                balance1 > lastTransfer.balance1) {
+        } else if (account == _lastTransfer.to) {
+            // Test to see if this tx is part of a liquidity add
+            if (balance0 > _lastTransfer.balance0 &&
+                balance1 > _lastTransfer.balance1) {
                 // Both pair balances have increased, this is a Liquidty Add
+                // Will block addETH and where other token address sorts higher
                 revert LiquidityAddOwnerOnly();
-            } else if (balance0 < lastTransfer.balance0 &&
-                balance1 < lastTransfer.balance1)
-            {
-                // Both pair balances have decreased, this is a Liquidty Remove
-                if (_liquidityLocked == _TRUE) revert LiquidityIsLocked();
             }
         }
     }
@@ -1755,9 +1749,11 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         _tokenTransfer(address(this), _msgSender(), _tOwned[address(this)] - 1, false);
     }
 
-    function mirgateV2Staker(address toAddress, uint96 amount, uint96 depositTokens, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards) external onlyController(Role.Upgrader) returns(uint256 nftId)
+    function mirgateV2Staker(address toAddress, uint96 rewards,uint96 depositTokens, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount) external onlyController(Role.Upgrader) returns(uint256 nftId)
     {
         nftId = stakeToken.bridgeOrAirdropStakeNftIn(toAddress, depositTokens, numOfMonths, stakeName, depositTime, withdrawnAmount, rewards, false);
+
+        uint96 amount = depositTokens - withdrawnAmount;
 
         _tokenTransfer(address(this), toAddress, amount, false);
         if (rewards > 0) {

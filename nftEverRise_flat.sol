@@ -56,6 +56,7 @@ error BrokenStatusesDiffer();              // 0x097b027d
 error AchievementClaimStatusesDiffer();    // 0x6524e8b0
 error UnlockedStakesMustBeSametimePeriod();// 0x42e227b0
 error CannotMergeLockedAndUnlockedStakes();// 0x9efeef2c
+error StakeUnlocked();                     // 0x6717a455
 
 // File: EverRise-v3/Interfaces/IERC173-Ownable.sol
 
@@ -170,6 +171,7 @@ interface IEverRise is IERC20Metadata {
     function isWalletLocked(address fromAddress) external view returns (bool);
     function setApprovalForAll(address fromAddress, address operator, bool approved) external;
     function isApprovedForAll(address account, address operator) external view returns (bool);
+    function isExcludedFromFee(address account) external view returns (bool);
 
     function approvals(address operator) external view returns (ApprovalChecks memory);
 }
@@ -216,6 +218,8 @@ interface InftEverRise {
     function increaseStake(address staker, uint256 nftId, uint96 amount) external returns (uint32 newNftId, uint96 original, uint8 numOfMonths);
     function splitStake(uint256 id, uint96 amount) external payable returns (uint32 newNftId0, uint32 newNftId1);
     function claimAchievement(address staker, uint256 nftId) external returns (uint32 newNftId);
+    function stakeCreateCost() external view returns (uint256);
+    function stakeBridgeFee() external view returns (uint256);
 }
 
 // File: EverRise-v3/Abstract/virtualToken.sol
@@ -479,6 +483,8 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
     event RoyaltyFeeUpdated(uint256 newValue);
     event RoyaltyAddressUpdated(address indexed contractAddress);
     event RendererAddressUpdated(address indexed contractAddress);
+    event StakeCreateCostUpdated(uint256 newValue);
+    event StakeBridgeFeeUpdated(uint256 newValue);
     event StakingParametersSet(uint256 withdrawPct, uint256 firstHalfPenality, uint256 secondHalfPenality, uint256 maxStakeMonths);
 
     IEverRiseRenderer public renderer;
@@ -489,6 +495,8 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
     uint8 public firstHalfPenality = 25;
     uint8 public secondHalfPenality = 10;
     uint8 public maxStakeMonths = 36;
+    uint256 public stakeCreateCost = 1 * 10**18 / (10**2);
+    uint256 public stakeBridgeFee = 1 * 10**18 / (10**2);
 
     mapping (address => bool) internal _canCreateRewards;
 
@@ -501,6 +509,26 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
         everRiseToken = IEverRise(tokenAddress);
 
         emit EverRiseTokenSet(tokenAddress);
+    }
+
+    function setStakeCreateCost(uint256 _stakeCreateCost, uint256 numOfDecimals)
+        external onlyOwner
+    {
+        // Catch typos, if decimals are pre-added
+        if (_stakeCreateCost > 1_000_000_000) revert AmountOutOfRange();
+
+        stakeCreateCost = _stakeCreateCost * (10**18) / (10**numOfDecimals);
+        emit StakeCreateCostUpdated(_stakeCreateCost);
+    }
+
+    function setStakeBridgeFee(uint256 _stakeBridgeFee, uint256 numOfDecimals)
+        external onlyOwner
+    {
+        // Catch typos, if decimals are pre-added
+        if (_stakeBridgeFee > 1_000_000_000) revert AmountOutOfRange();
+
+        stakeBridgeFee = _stakeBridgeFee * (10**18) / (10**numOfDecimals);
+        emit StakeBridgeFeeUpdated(_stakeBridgeFee);
     }
     
     function setAchievementNfts(address contractAddress) external onlyOwner() {
@@ -967,9 +995,16 @@ contract nftEverRise is nftEverRiseConfigurable {
         _reissueStakeNft(staker, nftId, newNftId);
     }
 
+    function getTime() external view returns (uint256) {
+        // Used to workout UI time drift from blockchain
+        return block.timestamp;
+    }
+
     function earlyWithdraw(address staker, uint256 id, uint96 amount) external onlyEverRiseToken returns (uint32 newNftId, uint96 penaltyAmount) {
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(id, staker);
         
+        if (stakeDetails.depositTime + (stakeDetails.numOfMonths * month) < block.timestamp) revert StakeUnlocked();
+
         uint256 remaingEarlyWithdrawal = (stakeDetails.initialTokenAmount * maxEarlyWithdrawalPercent) / 100 - stakeDetails.withdrawnAmount;
         if (amount > remaingEarlyWithdrawal) revert AmountLargerThanAvailable();
         roundingCheck(amount, false);
@@ -1032,10 +1067,12 @@ contract nftEverRise is nftEverRiseConfigurable {
     }
 
     function splitStake(uint256 nftId, uint96 amount) external payable walletLock(_msgSender()) returns (uint32 newNftId0, uint32 newNftId1) {
-        if (msg.value < everRiseToken.stakeCreateCost()) revert NotEnoughToCoverStakeFee();
-        payable(address(everRiseToken)).transfer(msg.value);
-
         address staker = _msgSender();
+        
+        if (msg.value < stakeCreateCost) revert NotEnoughToCoverStakeFee();
+
+        // Transfer everything, easier than transferring extras later
+        payable(address(everRiseToken)).transfer(address(this).balance);
 
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
 
