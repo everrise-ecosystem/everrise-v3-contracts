@@ -1,13 +1,15 @@
 // Copyright (c) 2022 EverRise Pte Ltd. All rights reserved.
 // EverRise licenses this file to you under the MIT license.
 /*
- EverRise Staking NFTs are Vote Escrowed (ve) EverRise weigthed governance tokens
- which generate rewards with a market driven yield curve, based of the
- transaction volume of EverRise trades and veEverRise sales.
+ EverRise Staking NFTs are containers of Vote Escrowed (ve)EverRise 
+ weighted governance tokens. veRISE generates rewards from the 
+ auto-buyback with a market driven yield curve, based on the transaction
+ volume of EverRise trades and veEverRise sales.
 
- On sales of veEverRise Staking NFTs a 10% royalty fee is collected
- * 6% for token Buyback from the market, 
-     with bought back tokens directly distributed as ve-staking rewards
+ On sales of nftEverRise Staking NFTs a 10% royalty fee is collected:
+
+ * 6% for token auto-buyback from the market, with bought back tokens
+      directly distributed as ve-staking rewards
  * 4% for Business Development (Development, Sustainability and Marketing)
 
                            ________                              _______   __
@@ -18,11 +20,11 @@
  _______ _______ _______  $$$$$/   $$  /$$/ $$    $$ |$$ |  $$/ $$$$$$$  |$$ |$$      \ $$    $$ |
 |    |  |    ___|_     _| $$ |_____ $$ $$/  $$$$$$$$/ $$ |      $$ |  $$ |$$ | $$$$$$  |$$$$$$$$/
 |       |    ___| |   |   $$       | $$$/   $$       |$$ |      $$ |  $$ |$$ |/     $$/ $$       |
-|__|____|___|     |___|   $$$$$$$$/   $/     $$$$$$$/ $$/       $$/   $$/ $$/ $$$$$$$/   $$$$$$$/
+|__|____|___|     |___|   $$$$$$$$/   $/     $$$$$$$/ $$/       $$/   $$/ $$/ $$$$$$$/   $$$$$$$/ Magnum opus
 
 Learn more about EverRise and the EverRise Ecosystem of dApps and
 how our utilities and partners can help protect your investors
-and help your project grow: https://www.everrise.com
+and help your project grow: https://everrise.com
 */
 
 // SPDX-License-Identifier: MIT
@@ -57,6 +59,9 @@ error AchievementClaimStatusesDiffer();    // 0x6524e8b0
 error UnlockedStakesMustBeSametimePeriod();// 0x42e227b0
 error CannotMergeLockedAndUnlockedStakes();// 0x9efeef2c
 error StakeUnlocked();                     // 0x6717a455
+error NoRewardsToClaim();                  // 0x73380d99
+error NotTransferrable();                  // 0x54ee5151
+error Overflow();                          // 0x35278d12
 
 // File: EverRise-v3/Interfaces/IERC173-Ownable.sol
 
@@ -162,7 +167,6 @@ interface IERC20Metadata is IERC20 {
 // File: EverRise-v3/Interfaces/IEverRise.sol
 
 interface IEverRise is IERC20Metadata {
-    function stakeCreateCost() external view returns (uint256);
     function totalBuyVolume() external view returns (uint256);
     function totalSellVolume() external view returns (uint256);
     function holders() external view returns (uint256);
@@ -174,6 +178,24 @@ interface IEverRise is IERC20Metadata {
     function isExcludedFromFee(address account) external view returns (bool);
 
     function approvals(address operator) external view returns (ApprovalChecks memory);
+}
+
+
+// File: EverRise-v3/Interfaces/IERC721-Nft.sol
+
+interface IERC721 /* is ERC165 */ {
+    event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
+    event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+    function balanceOf(address _owner) external view returns (uint256);
+    function ownerOf(uint256 _tokenId) external view returns (address);
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata data) external payable;
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function transferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function approve(address _approved, uint256 _tokenId) external payable;
+    function setApprovalForAll(address _operator, bool _approved) external;
+    function getApproved(uint256 _tokenId) external view returns (address);
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool);
 }
 
 // File: EverRise-v3/Interfaces/InftEverRise.sol
@@ -191,11 +213,9 @@ struct StakingDetails {
     uint24 stakerIndex;           // Max 16 M active stakes per wallet
     uint8 isActive;
     // 256 bits, 20000 gwei gas
-    bytes32 stakeName;            // Max 32 chars in name
-    // 256 bits, 20000 gwei gas
-} // Total 768 bits, 60000 gwei gas
+} // Total 768 bits, 40000 gwei gas
 
-interface InftEverRise {
+interface InftEverRise is IERC721 {
     function voteEscrowedBalance(address account) external view returns (uint256);
     function unclaimedRewardsBalance(address account) external view returns (uint256);
     function totalAmountEscrowed() external view returns (uint256);
@@ -203,15 +223,15 @@ interface InftEverRise {
     function totalRewardsDistributed() external view returns (uint256);
     function totalRewardsUnclaimed() external view returns (uint256);
 
-    function createRewards(address acount, uint256 tAmount) external;
+    function createRewards(uint256 tAmount) external;
 
     function getNftData(uint256 id) external view returns (StakingDetails memory);
-    function enterStaking(address fromAddress, uint96 amount, uint8 numOfMonths, bytes32 stakeName) external returns (uint32 nftId);
+    function enterStaking(address fromAddress, uint96 amount, uint8 numOfMonths) external returns (uint32 nftId);
     function leaveStaking(address fromAddress, uint256 id, bool overrideNotClaimed) external returns (uint96 amount);
     function earlyWithdraw(address fromAddress, uint256 id, uint96 amount) external returns (uint32 newNftId, uint96 penaltyAmount);
     function withdraw(address fromAddress, uint256 id, uint96 amount, bool overrideNotClaimed) external returns (uint32 newNftId);
     function bridgeStakeNftOut(address fromAddress, uint256 id) external returns (uint96 amount);
-    function bridgeOrAirdropStakeNftIn(address toAddress, uint96 depositAmount, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards, bool achievementClaimed) external returns (uint32 nftId);
+    function bridgeOrAirdropStakeNftIn(address toAddress, uint96 depositAmount, uint8 numOfMonths, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards, bool achievementClaimed) external returns (uint32 nftId);
     function addStaker(address staker, uint256 nftId) external;
     function removeStaker(address staker, uint256 nftId) external;
     function reissueStakeNft(address staker, uint256 oldNftId, uint256 newNftId) external;
@@ -219,7 +239,7 @@ interface InftEverRise {
     function splitStake(uint256 id, uint96 amount) external payable returns (uint32 newNftId0, uint32 newNftId1);
     function claimAchievement(address staker, uint256 nftId) external returns (uint32 newNftId);
     function stakeCreateCost() external view returns (uint256);
-    function stakeBridgeFee() external view returns (uint256);
+    function approve(address owner, address _operator, uint256 nftId) external;
 }
 
 // File: EverRise-v3/Abstract/virtualToken.sol
@@ -268,7 +288,7 @@ abstract contract virtualToken is Ownable, IERC20, IERC20Metadata {
     }
 
     function notTransferrable() pure private {
-        revert("Virtual token, not transferable.");
+        revert NotTransferrable();
     }
 }
 // File: EverRise-v3/claimRISE.sol
@@ -351,23 +371,6 @@ interface IEverRoyaltySplitter {
     event StableCoinSet(address indexed previous, address indexed current);
 
     function distribute() external;
-}
-
-// File: EverRise-v3/Interfaces/IERC721-Nft.sol
-
-interface IERC721 /* is ERC165 */ {
-    event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
-    event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
-    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
-    function balanceOf(address _owner) external view returns (uint256);
-    function ownerOf(uint256 _tokenId) external view returns (address);
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata data) external payable;
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
-    function transferFrom(address _from, address _to, uint256 _tokenId) external payable;
-    function approve(address _approved, uint256 _tokenId) external payable;
-    function setApprovalForAll(address _operator, bool _approved) external;
-    function getApproved(uint256 _tokenId) external view returns (address);
-    function isApprovedForAll(address _owner, address _operator) external view returns (bool);
 }
 
 /// @dev Note: the ERC-165 identifier for this interface is 0x150b7a02.
@@ -476,7 +479,7 @@ struct IndividualAllowance {
     uint32 nftCheck;
 }
 
-abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, ERC165, IERC2981, IERC721, IERC721Metadata, IOpenSeaCollectible {
+abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, ERC165, IERC2981, IERC721Metadata, IOpenSeaCollectible {
     event AddRewardCreator(address indexed _address);
     event RemoveRewardCreator(address indexed _address);
     event SetAchievementNfts(address indexed _address);
@@ -484,7 +487,6 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
     event RoyaltyAddressUpdated(address indexed contractAddress);
     event RendererAddressUpdated(address indexed contractAddress);
     event StakeCreateCostUpdated(uint256 newValue);
-    event StakeBridgeFeeUpdated(uint256 newValue);
     event StakingParametersSet(uint256 withdrawPct, uint256 firstHalfPenality, uint256 secondHalfPenality, uint256 maxStakeMonths);
 
     IEverRiseRenderer public renderer;
@@ -496,7 +498,6 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
     uint8 public secondHalfPenality = 10;
     uint8 public maxStakeMonths = 36;
     uint256 public stakeCreateCost = 1 * 10**18 / (10**2);
-    uint256 public stakeBridgeFee = 1 * 10**18 / (10**2);
 
     mapping (address => bool) internal _canCreateRewards;
 
@@ -515,20 +516,10 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
         external onlyOwner
     {
         // Catch typos, if decimals are pre-added
-        if (_stakeCreateCost > 1_000_000_000) revert AmountOutOfRange();
+        if (_stakeCreateCost > 1_000) revert AmountOutOfRange();
 
         stakeCreateCost = _stakeCreateCost * (10**18) / (10**numOfDecimals);
         emit StakeCreateCostUpdated(_stakeCreateCost);
-    }
-
-    function setStakeBridgeFee(uint256 _stakeBridgeFee, uint256 numOfDecimals)
-        external onlyOwner
-    {
-        // Catch typos, if decimals are pre-added
-        if (_stakeBridgeFee > 1_000_000_000) revert AmountOutOfRange();
-
-        stakeBridgeFee = _stakeBridgeFee * (10**18) / (10**numOfDecimals);
-        emit StakeBridgeFeeUpdated(_stakeBridgeFee);
     }
     
     function setAchievementNfts(address contractAddress) external onlyOwner() {
@@ -583,7 +574,10 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
     function setStakingParameters(uint8 _withdrawPercent, uint8 _firstHalfPenality, uint8 _secondHalfPenality, uint8 _maxStakeMonths)
         external onlyOwner
     {
-        if (_maxStakeMonths == 0 || _maxStakeMonths > type(uint8).max)
+        if (_maxStakeMonths == 0 || _maxStakeMonths > 120) {
+            revert AmountOutOfRange();
+        }
+
         maxEarlyWithdrawalPercent = _withdrawPercent;
         firstHalfPenality = _firstHalfPenality;
         secondHalfPenality = _secondHalfPenality;
@@ -601,8 +595,7 @@ contract nftEverRise is nftEverRiseConfigurable {
 
     uint256 private constant MAX = ~uint256(0);
     uint8 public constant decimals = 0;
-    uint8 private constant _decimals = 18;
-    uint256 private constant totalStakeTokensSupply = 3_000_000 * 10**6 * 10**_decimals;
+    uint256 private constant totalStakeTokensSupply = 120_000_000 * 10**6 * 10**18;
     uint8 constant _FALSE8 = 1;
     uint8 constant _TRUE8 = 2;
     
@@ -625,13 +618,13 @@ contract nftEverRise is nftEverRiseConfigurable {
     mapping (uint256 => uint256) private _stakeById;
     uint256[] private _freeStakes;
     mapping (address => uint256) public voteEscrowedBalance;
-    uint256 public totalAmountEscrowed = 0;
-    uint256 public totalAmountVoteEscrowed = 0;
-    uint256 public totalRewardsDistributed = 0;
+    uint256 public totalAmountEscrowed;
+    uint256 public totalAmountVoteEscrowed;
+    uint256 public totalRewardsDistributed;
     
     uint32 private nextNftId = 1;
-    veRise public veRiseToken;
-    claimRise public claimRiseToken;
+    veRise public immutable veRiseToken;
+    claimRise public immutable claimRiseToken;
 
     constructor() {
         veRiseToken = new veRise();
@@ -640,6 +633,19 @@ contract nftEverRise is nftEverRiseConfigurable {
         _rOwned[address(this)] = _rTotal;
         
         excludeFromReward(address(this));
+
+        _allStakeDetails.push(StakingDetails({
+            initialTokenAmount: 0,
+            withdrawnAmount: 0,
+            depositTime: 0,
+            numOfMonths: 1,
+            achievementClaimed: 0,
+            stakerAddress: address(0),
+            nftId: 0,
+            lookupIndex: 0,
+            stakerIndex: 0,
+            isActive: _FALSE8
+        }));
     }
  
     function _walletLock(address fromAddress) private view {
@@ -652,7 +658,7 @@ contract nftEverRise is nftEverRiseConfigurable {
     }
 
     function totalSupply() external view returns (uint256) {
-        return _allStakeDetails.length - _freeStakes.length;
+        return _allStakeDetails.length - _freeStakes.length - 1;
     }
 
     function _onlyRewardCreator(address senderAddress) private view {
@@ -683,11 +689,11 @@ contract nftEverRise is nftEverRiseConfigurable {
         return renderer.tokenURI(nftId);
     }
     
-    function createRewards(address account, uint256 amount) external onlyRewardCreator() {
+    function createRewards(uint256 amount) external onlyRewardCreator() {
         address sender = _msgSender();
         if (_isExcludedFromReward[sender]) revert NotAllowedToDeliverRewards();
         
-        _transferFromExcluded(address(this), account, amount);
+        _transferFromExcluded(address(this), sender, amount);
 
         totalRewardsDistributed += amount;
         
@@ -835,7 +841,9 @@ contract nftEverRise is nftEverRiseConfigurable {
         uint256 length = _excludedList.length;
 
         for (uint256 i = 0; i < length;) {
-            if (_rOwned[_excludedList[i]] > rSupply || _tOwned[_excludedList[i]] > tSupply) return (_rTotal, totalStakeTokensSupply);
+            if (_rOwned[_excludedList[i]] > rSupply || _tOwned[_excludedList[i]] > tSupply) {
+                return (_rTotal, totalStakeTokensSupply);
+            }
             rSupply -= _rOwned[_excludedList[i]];
             tSupply -= _tOwned[_excludedList[i]];
             
@@ -851,26 +859,29 @@ contract nftEverRise is nftEverRiseConfigurable {
         if (nftId == 0) revert DoesNotExist();
         lookupIndex = _stakeById[nftId];
         if (lookupIndex >= _allStakeDetails.length) revert DoesNotExist();
+        if (_allStakeDetails[lookupIndex].isActive != _TRUE8) revert DoesNotExist();
     }
 
     function ownerOf(uint256 nftId) public view returns (address) {
         uint256 lookupIndex = getStakeIndex(nftId);
         StakingDetails storage stakeDetails = _allStakeDetails[lookupIndex];
         
-        if (stakeDetails.isActive != _TRUE8) revert DoesNotExist();
         return stakeDetails.stakerAddress;
     }
 
     function _getStake(uint256 nftId, address staker) private view returns (uint256 lookupIndex, StakingDetails storage stakeDetails) {
         lookupIndex = getStakeIndex(nftId);
         stakeDetails = _allStakeDetails[lookupIndex];
-        
-        if (stakeDetails.isActive != _TRUE8) revert DoesNotExist();
+
         if (stakeDetails.stakerAddress != staker) revert NotStakerAddress();
 
         assert(nftId == stakeDetails.nftId);
     }
-    
+
+    function getStake(uint256 nftId, address staker) external view returns (StakingDetails memory stakeDetails) {
+        (, stakeDetails) = _getStake(nftId, staker);
+    }
+
     function getNftData(uint256 nftId) external view returns (StakingDetails memory) {
         uint256 lookupIndex = getStakeIndex(nftId);
         return _allStakeDetails[lookupIndex];
@@ -888,61 +899,73 @@ contract nftEverRise is nftEverRiseConfigurable {
         return unclaimedRewardsBalance(account) + _withdrawnRewards[account];
     }
     
-    function individualStake(address _owner, uint256 index) external view returns (StakingDetails memory) {
+    function tokenOfOwnerByIndex(address _owner, uint256 index) external view returns (uint32) {
         uint256[] storage stakes = _individualStakes[_owner];
         if (index > stakes.length) revert AmountOutOfRange();
         uint256 lookupIndex = stakes[index];
-        return _allStakeDetails[lookupIndex];
+        return _allStakeDetails[lookupIndex].nftId;
     }
     
-    function enterStaking(address staker, uint96 amount, uint8 numOfMonths, bytes32 stakeName)
+    function enterStaking(address staker, uint96 amount, uint8 numOfMonths)
         external onlyEverRiseToken returns (uint32 nftId) {
         // Stake time period must be in valid range
-        if (numOfMonths == 0 || numOfMonths > maxStakeMonths) revert AmountOutOfRange();
+        if (numOfMonths == 0 || 
+            numOfMonths > maxStakeMonths || 
+            (numOfMonths > 12 && (numOfMonths % 12) > 0)
+        ) {
+            revert AmountOutOfRange();
+        }
+
         roundingCheck(amount, false);
 
-        nftId = _createStake(staker, amount, amount, numOfMonths, stakeName, uint48(block.timestamp), false);
+        nftId = _createStake(staker, amount, 0, numOfMonths, uint48(block.timestamp), false);
      }
  
     // Rewards withdrawal doesn't need token lock check as is adding to locked wallet not removing
-    function withdrawRewards() external returns (uint256 rewards) {
+    function withdrawRewards() external {
         address staker = _msgSender();
-        rewards = unclaimedRewardsBalance(staker);
+        uint256 rewards = unclaimedRewardsBalance(staker);
 
-        if (rewards > 0) {
-            // Something to withdraw
-            _withdrawnRewards[staker] += rewards;
-            // Remove the veTokens for the rewards
-            _transfer(staker, address(this), rewards, false);
-            // Emit transfer
-            claimRiseToken.transferFrom(staker, address(0), rewards);
-            // Send RISE rewards
-            require(everRiseToken.transfer(staker, rewards));
+        if (rewards == 0) revert NoRewardsToClaim();
 
-            emit RewardsWithdrawn(staker, rewards);
-        }
+        // Something to withdraw
+        _withdrawnRewards[staker] += rewards;
+        // Remove the veTokens for the rewards
+        _transfer(staker, address(this), rewards, false);
+        // Emit transfer
+        claimRiseToken.transferFrom(staker, address(0), rewards);
+        // Send RISE rewards
+        require(everRiseToken.transfer(staker, rewards));
 
-        return rewards;
+        emit RewardsWithdrawn(staker, rewards);
     }
 
-    function renameStake(uint256 nftId, bytes32 stakeName) external {
-        (, StakingDetails storage stakeDetails) = _getStake(nftId, _msgSender());
-        stakeDetails.stakeName = stakeName;
+    function checkNotLocked(uint256 depositTime, uint256 numOfMonths) private view {
+        if (depositTime + (numOfMonths * month) > block.timestamp) {
+            revert StakeStillLocked();
+        }
     }
 
     function leaveStaking(address staker, uint256 nftId, bool overrideNotClaimed) external onlyEverRiseToken returns (uint96 amount) {
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
-        if (stakeDetails.depositTime + (stakeDetails.numOfMonths * month) > block.timestamp) revert StakeStillLocked();
-        if (!overrideNotClaimed && stakeDetails.achievementClaimed != _TRUE8) revert AchievementNotClaimed();
+
+        checkNotLocked(stakeDetails.depositTime, stakeDetails.numOfMonths);
+
+        if (!overrideNotClaimed && stakeDetails.achievementClaimed != _TRUE8) {
+            revert AchievementNotClaimed();
+        }
         
         amount = _removeStake(staker, nftId, lookupIndex, stakeDetails);
     }
 
     function withdraw(address staker, uint256 nftId, uint96 amount, bool overrideNotClaimed) external onlyEverRiseToken returns (uint32 newNftId) {
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
-        
-        if (stakeDetails.depositTime + (stakeDetails.numOfMonths * month) > block.timestamp) revert StakeStillLocked();
-        if (!overrideNotClaimed && stakeDetails.achievementClaimed != _TRUE8) revert AchievementNotClaimed();
+
+        checkNotLocked(stakeDetails.depositTime, stakeDetails.numOfMonths);
+
+        if (!overrideNotClaimed && stakeDetails.achievementClaimed != _TRUE8) {
+            revert AchievementNotClaimed();
+        }
 
         uint96 remaining = stakeDetails.initialTokenAmount - stakeDetails.withdrawnAmount;
         if (amount > remaining) revert AmountLargerThanAvailable();
@@ -953,12 +976,11 @@ contract nftEverRise is nftEverRiseConfigurable {
             decreaseVeAmount(staker, amount, stakeDetails.numOfMonths, true);
             // Out of period, inital now becomes remaining
             remaining -= amount;
-            stakeDetails.initialTokenAmount = remaining;
             reissueNft = true;
         }
-
-        if (stakeDetails.withdrawnAmount > 0) {
+        if (stakeDetails.initialTokenAmount != remaining) {
             // Out of period, zero out the withdrawal amount
+            stakeDetails.initialTokenAmount = remaining;
             stakeDetails.withdrawnAmount = 0;
             reissueNft = true;
         }
@@ -982,13 +1004,23 @@ contract nftEverRise is nftEverRiseConfigurable {
 
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
 
-        // Can only claim once
-        if (stakeDetails.achievementClaimed == _TRUE8) revert AchievementAlreadyClaimed();
+        checkNotLocked(stakeDetails.depositTime, stakeDetails.numOfMonths);
 
-        // Get new id
-        newNftId = _reissueStakeNftId(nftId, lookupIndex);
+        // Can only claim once
+        if (stakeDetails.achievementClaimed == _TRUE8) {
+            revert AchievementAlreadyClaimed();
+        }
+
+        // Reset broken status if unlocked
+        if (stakeDetails.withdrawnAmount > 0) {
+            stakeDetails.initialTokenAmount -= stakeDetails.withdrawnAmount;
+            stakeDetails.withdrawnAmount = 0;
+        }
+
         // Mark claimed
         stakeDetails.achievementClaimed = _TRUE8;
+        // Get new id
+        newNftId = _reissueStakeNftId(nftId, lookupIndex);
         // Set new id
         stakeDetails.nftId = newNftId;
         // Emit burn and mint events
@@ -1000,21 +1032,32 @@ contract nftEverRise is nftEverRiseConfigurable {
         return block.timestamp;
     }
 
-    function earlyWithdraw(address staker, uint256 id, uint96 amount) external onlyEverRiseToken returns (uint32 newNftId, uint96 penaltyAmount) {
-        (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(id, staker);
+    function checkLocked(uint48 depositTime, uint8 numOfMonths) private view {
+        if (depositTime + (numOfMonths * month) < block.timestamp) {
+            revert StakeUnlocked();
+        }
+    }
+
+    function earlyWithdraw(address staker, uint256 nftId, uint96 amount) external onlyEverRiseToken returns (uint32 newNftId, uint96 penaltyAmount) {
+        (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
         
-        if (stakeDetails.depositTime + (stakeDetails.numOfMonths * month) < block.timestamp) revert StakeUnlocked();
+        checkLocked(stakeDetails.depositTime, stakeDetails.numOfMonths);
 
         uint256 remaingEarlyWithdrawal = (stakeDetails.initialTokenAmount * maxEarlyWithdrawalPercent) / 100 - stakeDetails.withdrawnAmount;
-        if (amount > remaingEarlyWithdrawal) revert AmountLargerThanAvailable();
+
+        if (amount > remaingEarlyWithdrawal) {
+            revert AmountLargerThanAvailable();
+        }
+
         roundingCheck(amount, false);
 
         decreaseVeAmount(staker, amount, stakeDetails.numOfMonths, true);
+        
         penaltyAmount = calculateTax(amount, stakeDetails.depositTime, stakeDetails.numOfMonths); // calculate early penalty tax
 
         stakeDetails.withdrawnAmount += uint96(amount); // update the withdrawl amount
 
-        newNftId = _reissueStakeNftId(id, lookupIndex);
+        newNftId = _reissueStakeNftId(nftId, lookupIndex);
         stakeDetails.nftId = newNftId;
     }
 
@@ -1023,20 +1066,27 @@ contract nftEverRise is nftEverRiseConfigurable {
     {
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
 
+        checkLocked(stakeDetails.depositTime, stakeDetails.numOfMonths);
+
         roundingCheck(amount, false);
         numOfMonths = stakeDetails.numOfMonths;
 
         increaseVeAmount(staker, amount, numOfMonths, true);
-        
+        // Get current amount for main contract change event
+        original = stakeDetails.initialTokenAmount - stakeDetails.withdrawnAmount;
         // Take amount off the withdrawnAmount, "repairing" the stake
         if (amount > stakeDetails.withdrawnAmount) {
+            // Take withdrawn off amount
+            amount -= stakeDetails.withdrawnAmount;
+            // Clear withdrawn
             stakeDetails.withdrawnAmount = 0;
+            // Add remaining to initial
+            stakeDetails.initialTokenAmount += amount;
         } else {
+            // Just reduce amount withdrawn
             stakeDetails.withdrawnAmount -= amount;
         }
 
-        original = stakeDetails.initialTokenAmount;
-        stakeDetails.initialTokenAmount = original + amount;
         // Relock
         stakeDetails.depositTime = uint48(block.timestamp);
 
@@ -1044,10 +1094,13 @@ contract nftEverRise is nftEverRiseConfigurable {
         stakeDetails.nftId = newNftId;
         _reissueStakeNft(staker, nftId, newNftId);
     }
-
+    
     function extendStake(uint256 nftId, uint8 numOfMonths) external walletLock(_msgSender()) returns (uint32 newNftId) {
         address staker = _msgSender();
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
+        
+        checkLocked(stakeDetails.depositTime, stakeDetails.numOfMonths);
+
         if (stakeDetails.numOfMonths >= numOfMonths) revert StakeCanOnlyBeExtended();
         // Stake time period must be in valid range
         if (numOfMonths > maxStakeMonths) revert AmountOutOfRange();
@@ -1066,10 +1119,16 @@ contract nftEverRise is nftEverRiseConfigurable {
         _reissueStakeNft(staker, nftId, newNftId);
     }
 
+    function toUint96(uint256 value) internal pure returns (uint96) {
+        if (value > type(uint96).max) revert Overflow();
+        return uint96(value);
+    }
+
     function splitStake(uint256 nftId, uint96 amount) external payable walletLock(_msgSender()) returns (uint32 newNftId0, uint32 newNftId1) {
         address staker = _msgSender();
         
         if (msg.value < stakeCreateCost) revert NotEnoughToCoverStakeFee();
+        roundingCheck(amount, false);
 
         // Transfer everything, easier than transferring extras later
         payable(address(everRiseToken)).transfer(address(this).balance);
@@ -1077,12 +1136,12 @@ contract nftEverRise is nftEverRiseConfigurable {
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, staker);
 
         uint256 remainingAmount = stakeDetails.initialTokenAmount - stakeDetails.withdrawnAmount;
+
         if (amount >= remainingAmount) revert AmountLargerThanAvailable();
-        roundingCheck(amount, false);
-        
+  
         newNftId0 = _reissueStakeNftId(nftId, lookupIndex);
         // Update the existing stake
-        uint96 transferredWithdrawnAmount = stakeDetails.withdrawnAmount * amount / stakeDetails.initialTokenAmount;
+        uint96 transferredWithdrawnAmount = toUint96(stakeDetails.withdrawnAmount * uint256(amount) / stakeDetails.initialTokenAmount);
 
         stakeDetails.initialTokenAmount -= amount;
         stakeDetails.withdrawnAmount -= transferredWithdrawnAmount;
@@ -1095,9 +1154,7 @@ contract nftEverRise is nftEverRiseConfigurable {
             transferredWithdrawnAmount, // withdrawnAmount
             stakeDetails.depositTime,        // depositTime
             stakeDetails.numOfMonths,
-            stakeDetails.achievementClaimed == _TRUE8, // achievementClaimed
-            staker,
-            stakeDetails.stakeName
+            stakeDetails.achievementClaimed == _TRUE8 // achievementClaimed
         );
 
         _reissueStakeNft(staker, nftId, newNftId0);
@@ -1106,8 +1163,9 @@ contract nftEverRise is nftEverRiseConfigurable {
 
     function roundingCheck(uint96 amount, bool allowZero) private pure {
         // Round to nearest unit
-        uint96 roundedAmount = (amount / uint96(10**18)) * uint96(10**18);
-        if (amount != roundedAmount || (!allowZero && amount < 1)) revert AmountMustBeAnInteger();
+        uint96 roundedAmount = amount - (amount % uint96(10**18));
+
+        if (amount != roundedAmount || (!allowZero && amount == 0)) revert AmountMustBeAnInteger();
     }
 
     function mergeStakes(uint256 nftId0, uint256 nftId1, bool overrideStatuses)
@@ -1118,43 +1176,48 @@ contract nftEverRise is nftEverRiseConfigurable {
         (uint256 lookupIndex0, StakingDetails storage stakeDetails0) = _getStake(nftId0, staker);
         (uint256 lookupIndex1, StakingDetails storage stakeDetails1) = _getStake(nftId1, staker);
 
-        bool unlocked0 = stakeDetails0.depositTime + (stakeDetails0.numOfMonths * month) > block.timestamp;
-        bool unlocked1 = stakeDetails1.depositTime + (stakeDetails1.numOfMonths * month) > block.timestamp;
+        bool unlocked0 = stakeDetails0.depositTime + (stakeDetails0.numOfMonths * month) < block.timestamp;
+        bool unlocked1 = stakeDetails1.depositTime + (stakeDetails1.numOfMonths * month) < block.timestamp;
 
         if (unlocked0 == unlocked1) {
             if (stakeDetails0.numOfMonths != stakeDetails1.numOfMonths) {
                 revert UnlockedStakesMustBeSametimePeriod();
             }
-            
-            // Reset broken status if unlocked
-            stakeDetails0.withdrawnAmount = 0;
-            stakeDetails1.withdrawnAmount = 0;
-        } else if (unlocked0 != unlocked1) {
-            revert CannotMergeLockedAndUnlockedStakes();
-        }
-
-        if (!overrideStatuses) {
-            if (stakeDetails0.achievementClaimed != stakeDetails1.achievementClaimed) {
+            if (!overrideStatuses && stakeDetails0.achievementClaimed != stakeDetails1.achievementClaimed) {
                 revert AchievementClaimStatusesDiffer();
             }
-            if ((stakeDetails0.withdrawnAmount > 0) != (stakeDetails1.withdrawnAmount > 0)) {
+            
+            // Reset broken status if unlocked
+            if (stakeDetails0.withdrawnAmount > 0) {
+                stakeDetails0.initialTokenAmount -= stakeDetails0.withdrawnAmount;
+                stakeDetails0.withdrawnAmount = 0;
+            }
+            if (stakeDetails1.withdrawnAmount > 0) {
+                stakeDetails1.initialTokenAmount -= stakeDetails1.withdrawnAmount;
+                stakeDetails1.withdrawnAmount = 0;
+            }
+        } else if (unlocked0 != unlocked1) {
+            revert CannotMergeLockedAndUnlockedStakes();
+        } else {
+            // Both locked
+            if (!overrideStatuses && (stakeDetails0.withdrawnAmount > 0) != (stakeDetails1.withdrawnAmount > 0)) {
                 revert BrokenStatusesDiffer();
             }
         }
 
-        uint8 numOfMonths = stakeDetails0.numOfMonths;
+        uint8 numOfMonths0 = stakeDetails0.numOfMonths;
         if (!unlocked0) {
             uint8 extraMonths = 0;
             uint96 amount = 0;
             // Must both be locked
             uint8 numOfMonths1 = stakeDetails1.numOfMonths;
-            if (numOfMonths > numOfMonths1) {
-                extraMonths = numOfMonths - numOfMonths1;
+            if (numOfMonths0 > numOfMonths1) {
+                extraMonths = numOfMonths0 - numOfMonths1;
                 amount = (stakeDetails1.initialTokenAmount - stakeDetails1.withdrawnAmount);
-            } else if (numOfMonths < numOfMonths1) {
-                extraMonths = numOfMonths1 - numOfMonths;
+            } else if (numOfMonths0 < numOfMonths1) {
+                extraMonths = numOfMonths1 - numOfMonths0;
                 amount = (stakeDetails0.initialTokenAmount - stakeDetails0.withdrawnAmount);
-                numOfMonths = numOfMonths1;
+                numOfMonths0 = numOfMonths1;
             }
 
             if (extraMonths > 0 && amount > 0) {
@@ -1167,6 +1230,7 @@ contract nftEverRise is nftEverRiseConfigurable {
         stakeDetails0.withdrawnAmount += stakeDetails1.withdrawnAmount;
         if (unlocked0) {
             // For unlocked, use higher of two deposit times
+            // Can't "age" and nft by merging an older one in
             stakeDetails0.depositTime = stakeDetails0.depositTime > stakeDetails1.depositTime ?
                 stakeDetails0.depositTime : stakeDetails1.depositTime;
         } else {
@@ -1174,8 +1238,10 @@ contract nftEverRise is nftEverRiseConfigurable {
             stakeDetails0.depositTime = uint48(block.timestamp);
         }
 
-        stakeDetails0.numOfMonths = numOfMonths;
-        stakeDetails0.achievementClaimed |= stakeDetails1.achievementClaimed;
+        stakeDetails0.numOfMonths = numOfMonths0;
+        if (stakeDetails1.achievementClaimed == _TRUE8) {
+            stakeDetails0.achievementClaimed = _TRUE8;
+        }
         
         // Drop the second stake
         stakeDetails1.isActive = _FALSE8;
@@ -1200,9 +1266,7 @@ contract nftEverRise is nftEverRiseConfigurable {
         uint96 withdrawnAmount,
         uint48 depositTime,
         uint8 numOfMonths,
-        bool achievementClaimed,
-        address stakerAddress,
-        bytes32 stakeName
+        bool achievementClaimed
     ) private returns (uint32 nftId) {
         uint256[] storage stakes = _individualStakes[staker];
         // Create new stake
@@ -1212,9 +1276,8 @@ contract nftEverRise is nftEverRiseConfigurable {
             depositTime,        // depositTime
             numOfMonths,
             achievementClaimed, // achievementClaimed
-            stakerAddress,
-            uint24(stakes.length), // New staker's stake index
-            stakeName
+            staker,
+            uint24(stakes.length) // New staker's stake index
         );
 
         // Add new stake to individual's list
@@ -1230,11 +1293,10 @@ contract nftEverRise is nftEverRiseConfigurable {
         return _removeStake(fromAddress, nftId, lookupIndex, stakeDetails);
     }
 
-    function bridgeOrAirdropStakeNftIn(address toAddress, uint96 depositAmount, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards, bool achievementClaimed) 
+    function bridgeOrAirdropStakeNftIn(address toAddress, uint96 depositAmount, uint8 numOfMonths, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards, bool achievementClaimed) 
         external onlyEverRiseToken returns (uint32 nftId) {
             
-        uint96 remaining = depositAmount - withdrawnAmount;
-        nftId = _createStake(toAddress, depositAmount, remaining, numOfMonths, stakeName, depositTime, achievementClaimed);
+        nftId = _createStake(toAddress, depositAmount, withdrawnAmount, numOfMonths, depositTime, achievementClaimed);
         if (rewards > 0) {
             _transfer(address(this), toAddress, rewards, false);
             // Emit event
@@ -1249,8 +1311,7 @@ contract nftEverRise is nftEverRiseConfigurable {
         uint8 numOfMonths,
         bool achievementClaimed,
         address stakerAddress,
-        uint24 stakerIndex,
-        bytes32 stakeName
+        uint24 stakerIndex
     ) private returns (StakingDetails storage stakeDetails) {
         uint256 index = _freeStakes.length;
         if (index > 0) {
@@ -1278,8 +1339,6 @@ contract nftEverRise is nftEverRiseConfigurable {
         stakeDetails.stakerIndex = stakerIndex;
         stakeDetails.isActive = _TRUE8;
 
-        stakeDetails.stakeName = stakeName;
-
         // Set lookup
         _stakeById[nextNftId] = index;
         // Increase the next nft id
@@ -1290,10 +1349,8 @@ contract nftEverRise is nftEverRiseConfigurable {
         private
     {
         (uint256 lookupIndex, StakingDetails storage stakeDetails) = _getStake(nftId, fromAddress);
-        require(stakeDetails.withdrawnAmount == 0, "Broken stakes are non-transferable");
+        require(stakeDetails.withdrawnAmount == 0, "Broken, non-transferable");
 
-        // Clear name
-        stakeDetails.stakeName = 0x0;
         stakeDetails.stakerAddress = toAddress;
         // Full initial as withdrawn must be zero (above)
         uint96 amountToTransfer = stakeDetails.initialTokenAmount;
@@ -1317,7 +1374,9 @@ contract nftEverRise is nftEverRiseConfigurable {
 
     function _removeIndividualStake(address staker, uint24 stakerIndex) private {
         uint256[] storage stakes = _individualStakes[staker];
+
         uint24 stakerLength = uint24(stakes.length);
+
         if (stakerLength >= stakerIndex + 1) {
             // Not last item, overwrite with last item from account stakes
             uint256 lastStakeIndex = stakes[stakerLength - 1];
@@ -1378,28 +1437,27 @@ contract nftEverRise is nftEverRiseConfigurable {
         _freeStakes.push(lookupIndex);
     }
 
-    function _createStake(address staker, uint96 depositAmount, uint96 remaining, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, bool achievementClaimed)
+    function _createStake(address staker, uint96 depositAmount, uint96 withdrawnAmount, uint8 numOfMonths, uint48 depositTime, bool achievementClaimed)
         private returns (uint32 nftId)
     {
-        //uint256 remaining = depositAmount - withdrawnAmount;
-        if (remaining == 0) revert AmountOutOfRange();
+        if (withdrawnAmount >= depositAmount) revert AmountOutOfRange();
         uint256[] storage stakes = _individualStakes[staker];
 
         // Create new stake
         StakingDetails storage stakeDetails = _createStakeDetails(
             depositAmount,   // initialTokenAmount
-            depositAmount - remaining, // withdrawnAmount
+            withdrawnAmount, // withdrawnAmount
             depositTime,     // depositTime
             numOfMonths,
             achievementClaimed,           // achievementClaimed
             staker,
-            uint24(stakes.length),   // New staker's stake index
-            stakeName
+            uint24(stakes.length)   // New staker's stake index
         );
 
         // Add new stake to individual's list
         stakes.push(stakeDetails.lookupIndex);  
         
+        uint96 remaining = depositAmount - withdrawnAmount;
         increaseVeAmount(staker, remaining, numOfMonths, true);
 
         // Mint new Stake NFT to staker
@@ -1413,11 +1471,13 @@ contract nftEverRise is nftEverRiseConfigurable {
     function calculateTaxAt(uint96 amount, uint256 depositTime, uint256 numOfMonths, uint256 timestamp) public view returns (uint96) {
         uint256 lockTime = depositTime + (numOfMonths * month);
         uint96 taxAmount = 0;
-        if (timestamp < depositTime + (numOfMonths * 15 days)) {
+
+        if (timestamp < depositTime + (numOfMonths * month / 2)) {
             taxAmount = (amount * firstHalfPenality) / 100;
         } else if (timestamp < lockTime) {
             taxAmount = (amount * secondHalfPenality) / 100;
-        } 
+        }
+
         return taxAmount;
     }
 
@@ -1475,15 +1535,25 @@ contract nftEverRise is nftEverRiseConfigurable {
         _transferFrom(operator, from, to, tokenId);
     }
     
-    function approve(address _approved, uint256 nftId) external payable {
-        if (ownerOf(nftId) != _msgSender()) revert NotStakerAddress();
-        ApprovalChecks memory approvals = everRiseToken.approvals(_msgSender());
+   function approve(address account, address _operator, uint256 nftId)
+        external onlyEverRiseToken {
+        _approve(account, _operator, nftId);
+    }
+
+    function approve(address _operator, uint256 nftId) external payable {
+        _approve(_msgSender(), _operator, nftId);
+    }
+
+    function _approve(address account, address _operator, uint256 nftId) private {
+        if (ownerOf(nftId) != account) revert NotStakerAddress();
+
+        ApprovalChecks memory approvals = everRiseToken.approvals(account);
 
         _individualApproval[nftId] = IndividualAllowance({
-            operator: _approved, 
-            timestamp: approvals.autoRevokeTokenHours == 0 ? 
+            operator: _operator, 
+            timestamp: approvals.autoRevokeNftHours == 0 ? 
                 type(uint48).max : // Don't timeout approval
-                uint48(block.timestamp) + approvals.autoRevokeTokenHours * 1 hours, // Timeout after user chosen period,
+                uint48(block.timestamp) + approvals.autoRevokeNftHours * 1 hours, // Timeout after user chosen period,
             nftCheck: approvals.nftCheck
         });
     }

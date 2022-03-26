@@ -5,11 +5,11 @@
  and the overaching key that unlocks multi-blockchain unification via
  the EverBridge.
 
- On EverRise token txns 6% buyback and business development fees are collected
- * 4% for token Buyback from the market, 
-     with bought back tokens directly distributed as ve-staking rewards
- * 2% for Business Development (Development, Sustainability and Marketing)
+ On EverRise token transactions 6% buyback and business development fees are collected:
 
+ * 4% for token Buyback from the market, with bought back tokens directly
+      distributed as ve-staking rewards
+ * 2% for Business Development (Development, Sustainability and Marketing)
   ________                              _______   __
  /        |                            /       \ /  |
  $$$$$$$$/__     __  ______    ______  $$$$$$$  |$$/   _______   ______  v3.14159265
@@ -18,11 +18,11 @@
  $$$$$/   $$  /$$/ $$    $$ |$$ |  $$/ $$$$$$$  |$$ |$$      \ $$    $$ |
  $$ |_____ $$ $$/  $$$$$$$$/ $$ |      $$ |  $$ |$$ | $$$$$$  |$$$$$$$$/
  $$       | $$$/   $$       |$$ |      $$ |  $$ |$$ |/     $$/ $$       |
- $$$$$$$$/   $/     $$$$$$$/ $$/       $$/   $$/ $$/ $$$$$$$/   $$$$$$$/
+ $$$$$$$$/   $/     $$$$$$$/ $$/       $$/   $$/ $$/ $$$$$$$/   $$$$$$$/ Magnum opus
 
  Learn more about EverRise and the EverRise Ecosystem of dApps and
  how our utilities and partners can help protect your investors
- and help your project grow: https://www.everrise.com
+ and help your project grow: https://everrise.com
 */
 
 // SPDX-License-Identifier: MIT
@@ -40,24 +40,25 @@ error AmountLargerThanAvailable();      // 0xbb296109
 error StakeCanOnlyBeExtended();         // 0x73f7040a
 error NotStakeContractRequesting();     // 0x2ace6531
 error NotEnoughToCoverStakeFee();       // 0x627554ed
-error NotZeroAddress();    // 0x66385fa3
-error CallerNotApproved(); // 0x4014f1a5
-error InvalidAddress();    // 0xe6c4247b
-error CallerNotOwner();
-error NotZero();
-error LiquidityIsLocked();             // 0x6bac637f
-error LiquidityAddOwnerOnly();         // 0x878d6363
-error Overflow();
-error WalletLocked();                 // 0xd550ed24
-error LockTimeTooLong();              // 0xb660e89a
-error LockTimeTooShort();             // 0x
-error NotLocked();                    // 0x
-error AmountMustBeGreaterThanZero();  // 0x5e85ae73
-error Expired();                      // 0x203d82d8
-error InvalidSignature();             // 0x8baa579f
-error AmountLargerThanAllowance();    // 0x9b144c57
+error NotZeroAddress();                 // 0x66385fa3
+error CallerNotApproved();              // 0x4014f1a5
+error InvalidAddress();                 // 0xe6c4247b
+error CallerNotOwner();                 // 0x5cd83192
+error NotZero();                        // 0x0295aa98
+error LiquidityIsLocked();              // 0x6bac637f
+error LiquidityAddOwnerOnly();          // 0x878d6363
+error Overflow();                       // 0x35278d12
+error WalletLocked();                   // 0xd550ed24
+error LockTimeTooLong();                // 0xb660e89a
+error LockTimeTooShort();               // 0x6badcecf
+error NotLocked();                      // 0x1834e265
+error AmountMustBeGreaterThanZero();    // 0x5e85ae73
+error Expired();                        // 0x203d82d8
+error InvalidSignature();               // 0x8baa579f
+error AmountLargerThanAllowance();      // 0x9b144c57
 error AmountOutOfRange();               // 0xc64200e9
-
+error Unlocked();                       // 0x19aad371
+error FailedEthSend();                  // 0xb5747cc7
 
 // File: EverRise-v3/Interfaces/IERC2612-Permit.sol
 
@@ -92,6 +93,24 @@ abstract contract Context {
     }
 }
 
+
+// File: EverRise-v3/Interfaces/IERC721-Nft.sol
+
+interface IERC721 /* is ERC165 */ {
+    event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
+    event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+    function balanceOf(address _owner) external view returns (uint256);
+    function ownerOf(uint256 _tokenId) external view returns (address);
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata data) external payable;
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function transferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function approve(address _approved, uint256 _tokenId) external payable;
+    function setApprovalForAll(address _operator, bool _approved) external;
+    function getApproved(uint256 _tokenId) external view returns (address);
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool);
+}
+
 // File: EverRise-v3/Interfaces/InftEverRise.sol
 
 struct StakingDetails {
@@ -107,11 +126,9 @@ struct StakingDetails {
     uint24 stakerIndex;           // Max 16 M active stakes per wallet
     uint8 isActive;
     // 256 bits, 20000 gwei gas
-    bytes32 stakeName;            // Max 32 chars in name
-    // 256 bits, 20000 gwei gas
-} // Total 768 bits, 60000 gwei gas
+} // Total 512 bits, 40000 gwei gas
 
-interface InftEverRise {
+interface InftEverRise is IERC721 {
     function voteEscrowedBalance(address account) external view returns (uint256);
     function unclaimedRewardsBalance(address account) external view returns (uint256);
     function totalAmountEscrowed() external view returns (uint256);
@@ -119,15 +136,15 @@ interface InftEverRise {
     function totalRewardsDistributed() external view returns (uint256);
     function totalRewardsUnclaimed() external view returns (uint256);
 
-    function createRewards(address acount, uint256 tAmount) external;
+    function createRewards(uint256 tAmount) external;
 
     function getNftData(uint256 id) external view returns (StakingDetails memory);
-    function enterStaking(address fromAddress, uint96 amount, uint8 numOfMonths, bytes32 stakeName) external returns (uint32 nftId);
+    function enterStaking(address fromAddress, uint96 amount, uint8 numOfMonths) external returns (uint32 nftId);
     function leaveStaking(address fromAddress, uint256 id, bool overrideNotClaimed) external returns (uint96 amount);
     function earlyWithdraw(address fromAddress, uint256 id, uint96 amount) external returns (uint32 newNftId, uint96 penaltyAmount);
     function withdraw(address fromAddress, uint256 id, uint96 amount, bool overrideNotClaimed) external returns (uint32 newNftId);
     function bridgeStakeNftOut(address fromAddress, uint256 id) external returns (uint96 amount);
-    function bridgeOrAirdropStakeNftIn(address toAddress, uint96 depositAmount, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards, bool achievementClaimed) external returns (uint32 nftId);
+    function bridgeOrAirdropStakeNftIn(address toAddress, uint96 depositAmount, uint8 numOfMonths, uint48 depositTime, uint96 withdrawnAmount, uint96 rewards, bool achievementClaimed) external returns (uint32 nftId);
     function addStaker(address staker, uint256 nftId) external;
     function removeStaker(address staker, uint256 nftId) external;
     function reissueStakeNft(address staker, uint256 oldNftId, uint256 newNftId) external;
@@ -135,7 +152,7 @@ interface InftEverRise {
     function splitStake(uint256 id, uint96 amount) external payable returns (uint32 newNftId0, uint32 newNftId1);
     function claimAchievement(address staker, uint256 nftId) external returns (uint32 newNftId);
     function stakeCreateCost() external view returns (uint256);
-    function stakeBridgeFee() external view returns (uint256);
+    function approve(address owner, address _operator, uint256 nftId) external;
 }
 // File: EverRise-v3/Interfaces/IEverRiseWallet.sol
 
@@ -280,14 +297,14 @@ contract Ownable is IOwnable, Context {
 // File: EverRise-v3/Abstract/EverRiseRoles.sol
 
 
-contract EverRiseRoles is Ownable {
+abstract contract EverRiseRoles is Ownable {
     mapping (Role => mapping (address => bool)) public roles;
 
     enum Role 
     { 
         NotValidRole, 
         BuyBack, 
-        Staking,
+        NftBridge,
         Limits, 
         Liquidity, 
         Fees,
@@ -310,12 +327,30 @@ contract EverRiseRoles is Ownable {
 
     constructor() {
         address deployer = _msgSender();
-        roles[Role.BuyBack][deployer] = true;
-        roles[Role.Staking][deployer] = true;
-        roles[Role.Limits][deployer] = true;
-        roles[Role.Liquidity][deployer] = true;
-        roles[Role.Fees][deployer] = true;
-        roles[Role.Exchanges][deployer] = true;
+        ownerRoles(deployer, true);
+    }
+    
+    function transferOwnership(address newOwner) override external onlyOwner {
+        if (newOwner == address(0)) revert NotZeroAddress();
+
+        address previousOwner = owner;
+        ownerRoles(previousOwner, false);
+        ownerRoles(newOwner, true);
+
+        owner = newOwner;
+
+        emit OwnershipTransferred(previousOwner, newOwner);
+    }
+
+    function ownerRoles(address _owner, bool enable) private {
+        roles[Role.BuyBack][_owner] = enable;
+        roles[Role.NftBridge][_owner] = enable;
+        roles[Role.Limits][_owner] = enable;
+        roles[Role.Liquidity][_owner] = enable;
+        roles[Role.Fees][_owner] = enable;
+        roles[Role.Exchanges][_owner] = enable;
+        roles[Role.CrossChainBuyback][_owner] = enable;
+        roles[Role.Upgrader][_owner] = enable;
     }
 
     function addControlRole(address newController, Role role) external onlyOwner
@@ -386,7 +421,7 @@ library EverRiseLib {
     function swapTokensForEth(
         IUniswapV2Router02 uniswapV2Router,
         uint256 tokenAmount
-    ) internal {
+    ) external {
         address tokenAddress = address(this);
         // generate the uniswap pair path of token -> weth
         address[] memory path = new address[](2);
@@ -407,7 +442,7 @@ library EverRiseLib {
         IUniswapV2Router02 uniswapV2Router,
         address toAddress, 
         uint256 amount
-    ) internal {
+    ) external {
         // generate the uniswap pair path of token -> weth
         address[] memory path = new address[](2);
         path[0] = uniswapV2Router.WETH();
@@ -428,7 +463,7 @@ library EverRiseLib {
 
 interface IEverDrop {
     function mirgateV1V2Holder(address holder, uint96 amount) external returns(bool);
-    function mirgateV2Staker(address toAddress, uint96 rewards, uint96 depositTokens, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount) external returns(uint256 nftId);
+    function mirgateV2Staker(address toAddress, uint96 rewards, uint96 depositTokens, uint8 numOfMonths, uint48 depositTime, uint96 withdrawnAmount) external returns(uint256 nftId);
 }
 // File: EverRise-v3/Interfaces/IERC20-Token.sol
 
@@ -441,8 +476,6 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256);
     function approve(address spender, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
-    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
     function transferFromWithPermit(address sender, address recipient, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (bool);
 }
 
@@ -461,14 +494,12 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
     // keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 public constant DOMAIN_TYPEHASH = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
 
-    bytes32 public immutable DOMAIN_SEPARATOR;
-
     mapping (address => ApprovalChecks) internal _approvals;
     mapping (address => mapping (address => Allowance)) public allowances;
     //Lock related fields
     mapping(address => address) private _userUnlocks;
 
-    function _walletLock(address fromAddress) private view {
+    function _walletLock(address fromAddress) internal view {
         if (_isWalletLocked(fromAddress)) revert WalletLocked();
     }
 
@@ -481,12 +512,15 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
         return _approvals[fromAddress].unlockTimestamp > block.timestamp;
     }
 
-    constructor() {
-        DOMAIN_SEPARATOR = keccak256(
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
+        // Unique DOMAIN_SEPARATOR per user nbased on their current token check
+        uint32 tokenCheck = _approvals[_msgSender()].tokenCheck;
+
+        return keccak256(
             abi.encode(
                 DOMAIN_TYPEHASH,
                 keccak256(bytes(name())),
-                keccak256(bytes('1')),
+                keccak256(abi.encodePacked(tokenCheck)),
                 block.chainid,
                 address(this)
             )
@@ -528,7 +562,6 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
                 // nftCheck gets incremented, so set one behind approval
                 _allowance.nftCheck = _approval.nftCheck - 1;
             }
-            _allowance.timestamp = 0;
             _allowance.nftApproval = 0;
         }
     }
@@ -551,7 +584,7 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
-                DOMAIN_SEPARATOR,
+                DOMAIN_SEPARATOR(),
                 keccak256(
                     abi.encode(
                         PERMIT_TYPEHASH,
@@ -632,16 +665,6 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
         return allowanceSettings.tokenAmount;
     }
 
-    function increaseAllowance(address spender, uint256 addedValue) external returns (bool) {
-        address msgSender = _msgSender();
-        return _approve(msgSender, spender, allowance(msgSender,spender) + addedValue, true);
-    }
-
-    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool) {
-        address msgSender = _msgSender();
-        return _approve(msgSender, spender, allowance(msgSender,spender) - subtractedValue, false);
-    }
-
     function transfer(address recipient, uint256 amount)
         external
         override
@@ -683,6 +706,7 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
     }
 
     function lockTokensAndNfts(address altAccount, uint48 length) external walletLock(_msgSender()) {
+        if (altAccount == address(0)) revert NotZeroAddress();
         if (length / 1 days > 10 * 365 days) revert LockTimeTooLong();
 
         _approvals[_msgSender()].unlockTimestamp = uint48(block.timestamp) + length;
@@ -693,9 +717,12 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
 
     function extendLockTokensAndNfts(uint48 length) external {
         if (length / 1 days > 10 * 365 days) revert LockTimeTooLong();
+        uint48 currentLock = _approvals[_msgSender()].unlockTimestamp;
+
+        if (currentLock < block.timestamp) revert Unlocked();
 
         uint48 newLock = uint48(block.timestamp) + length;
-        if (_approvals[_msgSender()].unlockTimestamp > newLock) revert LockTimeTooShort();
+        if (currentLock > newLock) revert LockTimeTooShort();
         _approvals[_msgSender()].unlockTimestamp = newLock;
 
         emit LockWalletExtend(_msgSender(), length);
@@ -703,9 +730,11 @@ abstract contract EverRiseWallet is Context, IERC2612, IEverRiseWallet, IERC20Me
 
     function unlockTokensAndNfts(address actualAccount) external {
         if (_userUnlocks[actualAccount] != _msgSender()) revert CallerNotApproved();
+        uint48 currentLock = _approvals[_msgSender()].unlockTimestamp;
 
-        _userUnlocks[actualAccount] = address(0);
-        _approvals[_msgSender()].unlockTimestamp = uint48(block.timestamp);
+        if (currentLock < block.timestamp) revert Unlocked();
+
+        _approvals[_msgSender()].unlockTimestamp = 1;
     }
 
     function revokeApprovals(bool tokens, bool nfts) external {
@@ -773,7 +802,7 @@ interface IEverRise is IERC20Metadata {
     function isApprovedForAll(address account, address operator) external view returns (bool);
     function isExcludedFromFee(address account) external view returns (bool);
 
-    function approvals(address operator) external view returns (ApprovalChecks memory);
+    function approvals(address account) external view returns (ApprovalChecks memory);
 }
 // File: EverRise-v3/Abstract/EverRiseConfigurable.sol
 
@@ -836,9 +865,9 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
     // to allow upgrading balances to arrange their wallets
     // and stake their assets before trading start
 
-    uint256 public totalBuyVolume = 0;
-    uint256 public totalSellVolume = 0;
-    uint256 public transactionCap = 0;
+    uint256 public totalBuyVolume;
+    uint256 public totalSellVolume;
+    uint256 public transactionCap;
     uint96 public liquidityFee = 6;
 
     uint256 public businessDevelopmentDivisor = 2;
@@ -848,8 +877,8 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
     uint256 internal _buyBackTriggerTokenLimit = 1 * 10**6 * 10**decimals;
     uint256 internal _buyBackMinAvailability = 1 * 10**18; //1 BNB
 
-    uint256 internal _nextBuybackAmount = 0;
-    uint256 internal _latestBuybackBlock = 0;
+    uint256 internal _nextBuybackAmount;
+    uint256 internal _latestBuybackBlock;
     uint256 internal _numberOfBlocks = 1000;
     uint256 internal _minBuybackAmount = 1 * 10**18 / (10**1);
     uint256 internal _maxBuybackAmount = 1 * 10**18;
@@ -922,10 +951,11 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
         emit AutoBurnEnabled(_enabled);
     }
 
-    function excludeFromFee(address account) external onlyController(Role.Fees) {
+    function excludeFromFee(address account) public onlyController(Role.Fees) {
         if (_isExcludedFromFee[account]) revert InvalidAddress();
-
-        _excludeFromFee(account);
+        
+        _isExcludedFromFee[account] = true;
+        emit ExcludeFromFeeUpdated(account);
     }
 
     function addExchangeHotWallet(address account) external onlyController(Role.Exchanges) {
@@ -945,7 +975,8 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
     function includeInFee(address account) external onlyController(Role.Fees) {
         if (!_isExcludedFromFee[account]) revert InvalidAddress();
 
-        _includeInFee(account);
+        _isExcludedFromFee[account] = false;
+        emit IncludeInFeeUpdated(account);
     }
 
     function setTransactionCap(uint256 txAmount) external onlyController(Role.Limits) {
@@ -1051,20 +1082,17 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
         external
         onlyOwner
     {
-        if (contractAddress == address(0)) revert NotZeroAddress();
-
+        
+        excludeFromFee(contractAddress);
+        
         everBridgeVault = contractAddress;
         emit BridgeVaultAddressUpdated(contractAddress);
-
-        _excludeFromFee(contractAddress);
     }
 
     function setStakingAddress(address contractAddress) external onlyOwner {
-        if (contractAddress == address(0)) revert NotZeroAddress();
-
-        _excludeFromFee(contractAddress);
-
         stakeToken = InftEverRise(contractAddress);
+
+        excludeFromFee(contractAddress);
 
         emit StakingAddressUpdated(contractAddress);
     }
@@ -1093,16 +1121,6 @@ abstract contract EverRiseConfigurable is EverRiseRoles, EverRiseWallet, IEverRi
 
     function hasTokenStarted() public view returns (bool) {
         return transactionCap > 0;
-    }
-
-    function _excludeFromFee(address account) private {
-        _isExcludedFromFee[account] = true;
-        emit ExcludeFromFeeUpdated(account);
-    }
-
-    function _includeInFee(address account) private {
-        _isExcludedFromFee[account] = false;
-        emit IncludeInFeeUpdated(account);
     }
 
     function setLiquidityFeePercent(uint96 liquidityFeeRate) external onlyController(Role.Liquidity) {
@@ -1148,7 +1166,6 @@ struct TransferDetails {
     uint96 balance1;
     address origin;
 
-    address from;
     uint32 blockNumber;
 }
 
@@ -1173,7 +1190,7 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
     event TransferExternalTokens(address indexed tokenAddress, address indexed to, uint256 count);
 
     // Holder count
-    uint256 private _holders = 0;
+    uint256 private _holders;
     // Balance and locked (staked) balance
     mapping (address => uint96) private _tOwned;
     mapping (address => uint96) private _amountLocked;
@@ -1265,8 +1282,8 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
 
     // Transfers
 
-    function approvals(address operator) external view returns (ApprovalChecks memory) {
-        return _approvals[operator];
+    function approvals(address account) external view returns (ApprovalChecks memory) {
+        return _approvals[account]; 
     }
     
     function _transfer(
@@ -1307,8 +1324,9 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
                         _convertTokens(swapTokens);
                     }
 
-                    _buyback();
-                    emit BuyBackTriggered();
+                    if (_buyback()) {
+                        emit BuyBackTriggered();
+                    }
                 }
             }
         }
@@ -1345,7 +1363,7 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
                 _lastTransfer.blockNumber = 1;
             } else {
                 // Not in a swap during a LP add, so record the transfer details
-                _recordPotentialLiquidityChangeTransaction(from, to);
+                _recordPotentialLiquidityChangeTransaction(to);
             }
         }
 
@@ -1416,10 +1434,9 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
 
     // Buyback
     function crossChainBuyback() external onlyController(Role.CrossChainBuyback) {
-
-        _buyback();
-        
-        emit BuyBackCrossChainTriggered();
+        if (_buyback()) {
+            emit BuyBackCrossChainTriggered();
+        }
 
         // Is autoburn on?
         if (_autoBurn == _TRUE) {
@@ -1440,7 +1457,7 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         }
     }
 
-    function _buyback() private {
+    function _buyback() private returns (bool boughtBack) {
         if (_buyBackEnabled == _TRUE) {
             uint256 balance = address(this).balance;
             if (balance > _buyBackMinAvailability &&
@@ -1458,13 +1475,13 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
                 }
 
                 if (buybackAmount > 0) {
-                    _buyBackTokens(buybackAmount);
+                    boughtBack = _buyBackTokens(buybackAmount);
                 }
             }
         }
     }
 
-    function _buyBackTokens(uint256 amount) private lockTheSwap {
+    function _buyBackTokens(uint256 amount) private lockTheSwap returns (bool boughtBack) {
         _nextBuybackAmount = _minBuybackAmount; // reset the next buyback amount, set non-zero to save on future gas
 
         if (amount > 0) {
@@ -1477,6 +1494,8 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
             _latestBuybackBlock = block.number;
             //Distribute the rewards to the staking pool
             _distributeStakingRewards(tokensReceived);
+
+            boughtBack = true;
         }
     }
     
@@ -1495,14 +1514,14 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
 
         // Send split to Business Development address
         transferredETHBalance = transferredETHBalance * businessDevelopmentDivisor / liquidityFee;
-        businessDevelopmentAddress.transfer(transferredETHBalance);
+        sendEthViaCall(businessDevelopmentAddress, transferredETHBalance);
     }
 
     // Staking
 
     function _distributeStakingRewards(uint256 amount) private {
         if (amount > 0) {
-            stakeToken.createRewards(address(this), amount);
+            stakeToken.createRewards(amount);
 
             emit RewardStakers(amount);
         }
@@ -1514,24 +1533,24 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         _lockedTokenTransfer(fromAddress, toAddress, amountToTransfer);
     }
 
-    function enterStaking(uint96 amount, uint8 numOfMonths, bytes32 stakeName) external payable walletLock(_msgSender()) returns (uint32 nftId) {
+    function enterStaking(uint96 amount, uint8 numOfMonths) external payable walletLock(_msgSender()) {
         address staker = _msgSender();
         if (msg.value < stakeToken.stakeCreateCost()) revert NotEnoughToCoverStakeFee();
 
-        nftId = stakeToken.enterStaking(staker, amount, numOfMonths, stakeName);
+        uint32 nftId = stakeToken.enterStaking(staker, amount, numOfMonths);
 
         _lockAndAddStaker(staker, amount, numOfMonths, nftId);
     }
 
     function increaseStake(uint256 nftId, uint96 amount)
-        external walletLock(_msgSender()) returns (uint32 newNftId)
+        external walletLock(_msgSender())
     {
         address staker = _msgSender();
         _increaseLockedAmount(staker, amount);
 
         uint8 numOfMonths;
         uint96 original;
-        (newNftId, original, numOfMonths) = stakeToken.increaseStake(staker, nftId, amount);
+        (, original, numOfMonths) = stakeToken.increaseStake(staker, nftId, amount);
 
         emit StakingDecreased(staker, original);
         emit StakingIncreased(staker, original + amount, numOfMonths);
@@ -1553,33 +1572,32 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         }
     }
 
-    function leaveStaking(uint256 nftId, bool overrideNotClaimed) external walletLock(_msgSender()) returns (uint96 amount) {
+    function leaveStaking(uint256 nftId, bool overrideNotClaimed) external walletLock(_msgSender()) {
         address staker = _msgSender();
 
-        amount = stakeToken.leaveStaking(staker, nftId, overrideNotClaimed);
+        uint96 amount = stakeToken.leaveStaking(staker, nftId, overrideNotClaimed);
         _decreaseLockedAmount(staker, amount, true);
         stakeToken.removeStaker(staker, nftId);
     }
 
-    function earlyWithdraw(uint256 nftId, uint96 amount) external walletLock(_msgSender()) returns (uint32 newNftId) {
+    function earlyWithdraw(uint256 nftId, uint96 amount) external walletLock(_msgSender()) {
         address staker = _msgSender();
 
-        uint96 penaltyAmount;
-        (newNftId, penaltyAmount) = stakeToken.earlyWithdraw(staker, nftId, amount);
+        (uint32 newNftId, uint96 penaltyAmount) = stakeToken.earlyWithdraw(staker, nftId, amount);
         _decreaseLockedAmount(staker, amount, true);
         
         if (penaltyAmount > 0) {
-            _transfer(staker, address(stakeToken), penaltyAmount);
+            _tokenTransfer(staker, address(stakeToken), penaltyAmount, false);
             _distributeStakingRewards(penaltyAmount);
         }
 
         stakeToken.reissueStakeNft(staker, nftId, newNftId);
     }
 
-    function withdraw(uint256 nftId, uint96 amount, bool overrideNotClaimed) external walletLock(_msgSender()) returns (uint32 newNftId) {
+    function withdraw(uint256 nftId, uint96 amount, bool overrideNotClaimed) external walletLock(_msgSender()) {
         address staker = _msgSender();
 
-        (newNftId) = stakeToken.withdraw(staker, nftId, amount, overrideNotClaimed);
+        (uint32 newNftId) = stakeToken.withdraw(staker, nftId, amount, overrideNotClaimed);
         if (amount > 0) {
             _decreaseLockedAmount(staker, amount, true);
         }
@@ -1599,48 +1617,61 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
 
         return _isApprovedForAll(account, operator);
     }
-
+    
     // Nft bridging
+    function approveNFTAndTokens(address bridgeAddress, uint256 nftId, uint256 tokenAmount) external {
+        if (!roles[Role.NftBridge][bridgeAddress]) revert NotContractAddress();
 
-    function bridgeStakeNftOut(address fromAddress, uint256 nftId) external onlyController(Role.Staking)
-    {
+        stakeToken.approve(bridgeAddress, _msgSender(), nftId);
+        _approve(_msgSender(), bridgeAddress, tokenAmount, true);
+    }
+
+    function bridgeStakeNftOut(address fromAddress, uint256 nftId) external onlyController(Role.NftBridge) {
+        if (stakeToken.getApproved(nftId) != _msgSender() && !stakeToken.isApprovedForAll(_msgSender(), fromAddress)) {
+            revert CallerNotApproved();
+        }
+        
+        _walletLock(fromAddress);
+
         uint96 amount = stakeToken.bridgeStakeNftOut(fromAddress, nftId);
         _decreaseLockedAmount(fromAddress, amount, true);
         // Send tokens to vault
-        _transfer(fromAddress, everBridgeVault, amount);
+        _tokenTransfer(fromAddress, everBridgeVault, amount, false);
 
         stakeToken.removeStaker(fromAddress, nftId);
-        emit NftBridgedOut(address(this), everBridgeVault, fromAddress, nftId, 1);
+        emit NftBridgedOut(address(this), everBridgeVault, fromAddress, nftId, amount);
     }
 
-    function bridgeStakeNftIn(address toAddress, uint96 amount, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount, bool achievementClaimed) external onlyController(Role.Staking) returns (uint256 nftId)
+    function bridgeStakeNftIn(address toAddress, uint96 depositTokens, uint8 numOfMonths, uint48 depositTime, uint96 withdrawnAmount, bool achievementClaimed) external onlyController(Role.NftBridge) returns (uint256 nftId)
     {
-        nftId = stakeToken.bridgeOrAirdropStakeNftIn(toAddress, amount, numOfMonths, stakeName, depositTime, withdrawnAmount, 0, achievementClaimed);
+        nftId = stakeToken.bridgeOrAirdropStakeNftIn(toAddress, depositTokens, numOfMonths, depositTime, withdrawnAmount, 0, achievementClaimed);
 
+        uint96 amount = depositTokens - withdrawnAmount;
         //Send the tokens from Vault
-        _approve(everBridgeVault, address(this), amount, true);
-        transferFrom(everBridgeVault, toAddress, amount);
+        _tokenTransfer(everBridgeVault, toAddress, amount, false);
 
-        emit NftBridgedIn(address(this), everBridgeVault, toAddress, nftId, 1);
         _lockAndAddStaker(toAddress, amount, numOfMonths, nftId);
+
+        emit NftBridgedIn(address(this), everBridgeVault, toAddress, nftId, amount);
     }
 
     function _lockAndAddStaker(address toAddress, uint96 amount, uint8 numOfMonths, uint256 nftId) private {
         _increaseLockedAmount(toAddress, amount);
-        emit StakingIncreased(toAddress, amount, numOfMonths);
         stakeToken.addStaker(toAddress, nftId);
+
+        emit StakingIncreased(toAddress, amount, numOfMonths);
     }
 
     // Liquidity
 
-    function _recordPotentialLiquidityChangeTransaction(address from, address to) private {
+    function _recordPotentialLiquidityChangeTransaction(address to) private {
         uint96 balance0 = uint96(_balanceOf(to));
         (address token0, address token1) = to.pairTokens();
         if (token1 == address(this)) {
             // Switch token so token1 is always other side of pair
             token1 = token0;
-        }
-
+        } 
+        
         if (token1 == address(0)) {
             // Not LP pair, just set blocknumber to 1 to clear, to save gas on changing back
             _lastTransfer.blockNumber = 1;
@@ -1648,23 +1679,25 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         }
         
         uint96 balance1 = uint96(IERC20(token1).balanceOf(to));
+
         _lastTransfer = TransferDetails({
             balance0: balance0,
             to: to,
             balance1: balance1,
             origin: tx.origin,
-            from: from,
             blockNumber: uint32(block.number)
         });
     }
 
     // account must be recorded in _transfer and same block
     function _validateIfLiquidityChange(address account, uint112 balance0) private view {
-        if (_lastTransfer.origin == tx.origin) {
-            // Not same txn
+        if (_lastTransfer.origin != tx.origin ||
+            account != _lastTransfer.to) {
+            // Not same txn, or not LP addETH
             return;
         }
 
+        // Check if LP change using the data recorded in _transfer
         // May be same transaction as _transfer
         (address token0, address token1) = account.pairTokens();
         // Not LP pair
@@ -1674,48 +1707,30 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
             // Switch token so token1 is always other side of pair
             token1 = token0;
             switchTokens = true;
-        } else if (token1 != address(this)) {
+        } else if (token0 != address(this)) {
             // Not LP for this token
             return;
         }
 
         uint256 balance1 = IERC20(token1).balanceOf(account);
-
-        // Check if LP change using the data recorded in _transfer
-        if (account == _lastTransfer.from) {
-            // Test to see if this tx is part of a Liquidity burn
-            try IUniswapV2Pair(account).getReserves() returns (uint112 reserve0, uint112 reserve1,uint32) {
-                if (switchTokens) {
-                    (reserve0, reserve1) = (reserve1, reserve0);
-                }
-
-                if (balance1 < reserve1 && balance0 < reserve0) {
-                    // Both pair balances have decreased, this is a Liquidty Remove
-                    if (_liquidityLocked == _TRUE) 
-                    {
-                        revert LiquidityIsLocked();
-                    }
-                }
-            } catch {
-                // Not LP
-                return;
-            }
-        } else if (account == _lastTransfer.to) {
-            // Test to see if this tx is part of a liquidity add
-            if (balance0 > _lastTransfer.balance0 &&
-                balance1 > _lastTransfer.balance1) {
-                // Both pair balances have increased, this is a Liquidty Add
-                // Will block addETH and where other token address sorts higher
-                revert LiquidityAddOwnerOnly();
-            }
+        // Test to see if this tx is part of a liquidity add
+        if (balance0 > _lastTransfer.balance0 &&
+            balance1 > _lastTransfer.balance1) {
+            // Both pair balances have increased, this is a Liquidty Add
+            // Will block addETH and where other token address sorts higher
+            revert LiquidityAddOwnerOnly();
         }
     }
 
     // Admin
 
-    function startToken() external onlyOwner {
-        // Can only be called once
+    function upgradeComplete() external onlyOwner {
+        // Can only be called before start
         if (hasTokenStarted()) revert TokenAlreadyStarted();
+
+        // We will keep one token always in contract
+        // so we don't need to track it in holder changes
+        _tokenTransfer(address(this), _msgSender(), _tOwned[address(this)] - 1, false);
 
         _buyBackEnabled = _TRUE;
         _swapEnabled = _TRUE;
@@ -1724,8 +1739,13 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         emit TokenStarted();
     }
 
+    function sendEthViaCall(address payable to, uint256 amount) private {
+        (bool sent, ) = to.call{value: amount}("");
+        if (!sent) revert FailedEthSend();
+    }
+
     function transferBalance(uint256 amount) external onlyOwner {
-        _msgSender().transfer(amount);
+        sendEthViaCall(_msgSender(), amount);
     }
 
     function transferExternalTokens(address tokenAddress, address to, uint256 amount) external onlyOwner {
@@ -1740,18 +1760,9 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         emit TransferExternalTokens(tokenAddress, to, amount);
     }
 
-    function upgradeComplete() external onlyOwner {
-        // Can only be called before start
-        if (hasTokenStarted()) revert TokenAlreadyStarted();
-
-        // We will keep one token always in contract
-        // so we don't need to track it in holder changes
-        _tokenTransfer(address(this), _msgSender(), _tOwned[address(this)] - 1, false);
-    }
-
-    function mirgateV2Staker(address toAddress, uint96 rewards,uint96 depositTokens, uint8 numOfMonths, bytes32 stakeName, uint48 depositTime, uint96 withdrawnAmount) external onlyController(Role.Upgrader) returns(uint256 nftId)
+    function mirgateV2Staker(address toAddress, uint96 rewards,uint96 depositTokens, uint8 numOfMonths, uint48 depositTime, uint96 withdrawnAmount) external onlyController(Role.Upgrader) returns(uint256 nftId)
     {
-        nftId = stakeToken.bridgeOrAirdropStakeNftIn(toAddress, depositTokens, numOfMonths, stakeName, depositTime, withdrawnAmount, rewards, false);
+        nftId = stakeToken.bridgeOrAirdropStakeNftIn(toAddress, depositTokens, numOfMonths, depositTime, withdrawnAmount, rewards, false);
 
         uint96 amount = depositTokens - withdrawnAmount;
 
