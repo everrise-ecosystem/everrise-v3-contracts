@@ -1622,7 +1622,7 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
     function approveNFTAndTokens(address bridgeAddress, uint256 nftId, uint256 tokenAmount) external {
         if (!roles[Role.NftBridge][bridgeAddress]) revert NotContractAddress();
 
-        stakeToken.approve(bridgeAddress, _msgSender(), nftId);
+        stakeToken.approve(_msgSender(), bridgeAddress, nftId);
         _approve(_msgSender(), bridgeAddress, tokenAmount, true);
     }
 
