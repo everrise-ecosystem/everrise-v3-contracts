@@ -1291,7 +1291,6 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         address to,
         uint256 amount
     ) internal override walletLock(from) {
-        if (to == address(this)) revert NotContractAddress();
         if (from == address(0) || to == address(0)) revert NotZeroAddress();
         if (amount == 0) revert AmountMustBeGreaterThanZero();
         if (amount > (_balanceOf(from) - _amountLocked[from])) revert AmountLargerThanUnlockedAmount();
@@ -1304,6 +1303,7 @@ contract EverRise is EverRiseConfigurable, IEverDrop {
         bool isSell = to == pair;
         bool isBuy = from == pair;
         if (!isIgnoredAddress) {
+            if (to == address(this)) revert NotContractAddress();
             if (amount > transactionCap) revert TransferTooLarge();
             if (!hasStarted) revert TokenNotStarted();
             if (notInSwap) {
