@@ -62,6 +62,7 @@ error StakeUnlocked();                     // 0x6717a455
 error NoRewardsToClaim();                  // 0x73380d99
 error NotTransferrable();                  // 0x54ee5151
 error Overflow();                          // 0x35278d12
+error MergeNotEnabled();                   // 0x
 
 // File: EverRise-v3/Interfaces/IERC173-Ownable.sol
 
@@ -487,8 +488,8 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
     event RoyaltyAddressUpdated(address indexed contractAddress);
     event RendererAddressUpdated(address indexed contractAddress);
     event StakeCreateCostUpdated(uint256 newValue);
-    event StakingParametersSet(uint256 withdrawPct, uint256 firstHalfPenality, uint256 secondHalfPenality, uint256 maxStakeMonths);
-
+    event StakingParametersSet(uint256 withdrawPct, uint256 firstHalfPenality, uint256 secondHalfPenality, uint256 maxStakeMonths, bool mergeEnabled);
+ 
     IEverRiseRenderer public renderer;
     IEverRoyaltySplitter public royaltySplitter;
     uint256 public nftRoyaltySplit = 10;
@@ -498,6 +499,15 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
     uint8 public secondHalfPenality = 10;
     uint8 public maxStakeMonths = 36;
     uint256 public stakeCreateCost = 1 * 10**18 / (10**2);
+    uint256 public mergeEnabled = _FALSE;
+
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+    uint256 constant _FALSE = 1;
+    uint256 constant _TRUE = 2;
 
     mapping (address => bool) internal _canCreateRewards;
 
@@ -571,7 +581,7 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
         emit RendererAddressUpdated(newAddress);
     }
 
-    function setStakingParameters(uint8 _withdrawPercent, uint8 _firstHalfPenality, uint8 _secondHalfPenality, uint8 _maxStakeMonths)
+    function setStakingParameters(uint8 _withdrawPercent, uint8 _firstHalfPenality, uint8 _secondHalfPenality, uint8 _maxStakeMonths, bool _mergEnabled)
         external onlyOwner
     {
         if (_maxStakeMonths == 0 || _maxStakeMonths > 120) {
@@ -582,8 +592,9 @@ abstract contract nftEverRiseConfigurable is EverRiseTokenOwned, InftEverRise, E
         firstHalfPenality = _firstHalfPenality;
         secondHalfPenality = _secondHalfPenality;
         maxStakeMonths = _maxStakeMonths;
+        mergeEnabled = _mergEnabled ? _TRUE : _FALSE;
 
-        emit StakingParametersSet(_withdrawPercent, _firstHalfPenality, _secondHalfPenality, _maxStakeMonths);
+        emit StakingParametersSet(_withdrawPercent, _firstHalfPenality, _secondHalfPenality, _maxStakeMonths, _mergEnabled);
     }
 }
 
@@ -1102,8 +1113,13 @@ contract nftEverRise is nftEverRiseConfigurable {
         checkLocked(stakeDetails.depositTime, stakeDetails.numOfMonths);
 
         if (stakeDetails.numOfMonths >= numOfMonths) revert StakeCanOnlyBeExtended();
+
         // Stake time period must be in valid range
-        if (numOfMonths > maxStakeMonths) revert AmountOutOfRange();
+        if (numOfMonths > maxStakeMonths || 
+            (numOfMonths > 12 && (numOfMonths % 12) > 0)
+        ) {
+            revert AmountOutOfRange();
+        }
 
         uint8 extraMonths = numOfMonths - stakeDetails.numOfMonths;
         uint96 amount = (stakeDetails.initialTokenAmount - stakeDetails.withdrawnAmount);
@@ -1172,6 +1188,8 @@ contract nftEverRise is nftEverRiseConfigurable {
         external walletLock(_msgSender())
         returns (uint32 newNftId)
     {
+        if (mergeEnabled != _TRUE) revert MergeNotEnabled();
+        
         address staker = _msgSender();
         (uint256 lookupIndex0, StakingDetails storage stakeDetails0) = _getStake(nftId0, staker);
         (uint256 lookupIndex1, StakingDetails storage stakeDetails1) = _getStake(nftId1, staker);
