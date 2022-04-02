@@ -1,11 +1,18 @@
 # Everrise v3 Contracts
 
-EverRise v3 flattened contracts
+## EverRise v3 flattened contracts
 
-### EverRise_flat.sol 
+### EverRise token 
 
-EverRise token 
+* EverRise_flat.sol 
+* EverRiseAvax_flat.sol
 
-### nftEverRise_flat.sol 
+### nftEverRise Staking NFTs, veRISE, claimRise
 
-nftEverRise Staking NFTs
+* nftEverRise_flat.sol 
+* EverRiseRendererGlyph_flat.sol
+* EverRiseRenderer_flat.sol
+
+### Supporting contracts
+
+EverRiseStats_flat.sol 
