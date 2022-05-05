@@ -36,5 +36,5 @@ Stake your tokens in month-long increments between 1 and 12 months as well as lo
 
 ### Supporting contracts
 
-EverRiseStats_flat.sol 
+EverRiseStats_flat.sol : Live stats and pricing for the ecosystem
 
