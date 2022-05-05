@@ -1,4 +1,7 @@
-# EverRise v3
+# EverRise
+## The Original Buyback Token Powering The EverRise Ecosystem
+
+[EverRise token (RISE)](https://everrise.com/rise/) is a multi-chain collateralized cryptocurrency that serves as a utility token for cross-chain transfers and secures both the ecosystem and holders with its innovative buyback and staking protocol.
 
 ![Ecosystem](https://data.everrise.com/images/ecosystem-800.png)
 
