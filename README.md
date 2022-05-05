@@ -1,5 +1,12 @@
 # EverRise Token and NFT contracts
-## The Original Buyback Token Powering The EverRise Ecosystem
+
+
+
+https://user-images.githubusercontent.com/87881922/167009505-456f0e94-a122-46b2-85ab-0b9e287e0784.mp4
+
+
+
+## $RISE: The Original Buyback Token Powering The EverRise Ecosystem
 
 [EverRise token (RISE)](https://everrise.com/rise/) is a multi-chain collateralized cryptocurrency that serves as a utility token for cross-chain transfers and secures both the ecosystem and holders with its innovative buyback and staking protocol.
 
