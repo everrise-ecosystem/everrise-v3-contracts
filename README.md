@@ -36,5 +36,5 @@ Stake your tokens in month-long increments between 1 and 12 months as well as lo
 
 ### Supporting contracts
 
-EverRiseStats_flat.sol : Live stats and pricing for the ecosystem
+EverRiseStats_flat.sol : [Live stats and pricing](https://data.everrise.com/stats.html) using Chainlink; also historic stats via archive nodes for the ecosystem
 
