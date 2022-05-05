@@ -1,4 +1,4 @@
-# EverRise
+# EverRise Token and NFT contracts
 ## The Original Buyback Token Powering The EverRise Ecosystem
 
 [EverRise token (RISE)](https://everrise.com/rise/) is a multi-chain collateralized cryptocurrency that serves as a utility token for cross-chain transfers and secures both the ecosystem and holders with its innovative buyback and staking protocol.
@@ -11,17 +11,17 @@
 
 ### EverRise token Contract 
 
-* EverRise_flat.sol 
-* EverRiseAvax_flat.sol
+* EverRise_flat.sol : EverRise token contract
+* EverRiseAvax_flat.sol : EverRise token contract (Changes for TraderJoe dex)
 
 # EverRise NFT Stakes
 ## Flexible Staking with On-Chain NFTs
 
 ### nftEverRise Staking NFTs, veRISE, claimRise Contract
 
-* nftEverRise_flat.sol 
-* EverRiseRendererGlyph_flat.sol
-* EverRiseRenderer_flat.sol
+* nftEverRise_flat.sol : Stake NFTs, vote-escrowed RISE, and rewards RISE
+* EverRiseRendererGlyph_flat.sol: OnChain SVG animal glyphs
+* EverRiseRenderer_flat.sol: OnChain JSON attribute and SVG renderer 
 
 [EverRise’s innovative staking protocol](https://everrise.com/everstake/) provides stakers with on-chain NFTs that securely store staking contracts directly within your DeFi wallet.
 
