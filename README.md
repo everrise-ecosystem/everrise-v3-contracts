@@ -1,4 +1,4 @@
-# EverRise Token and NFT contracts
+# EverRise Token and Onchain NFT contracts
 
 ## $RISE: The Original Buyback Token Powering The EverRise Ecosystem
 
@@ -17,7 +17,7 @@
 
 # EverRise NFT Stakes
 
-https://user-images.githubusercontent.com/87881922/167014541-a4d583fa-b3ed-4b64-a5bf-ef0ca71d22fb.mp4
+https://user-images.githubusercontent.com/87881922/167014915-d253e3eb-cc7f-435d-adab-e300e07c1590.mp4
 
 ## Flexible Staking with On-Chain NFTs
 
