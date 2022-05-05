@@ -1,10 +1,6 @@
 # EverRise Token and NFT contracts
 
-
-
-https://user-images.githubusercontent.com/87881922/167009505-456f0e94-a122-46b2-85ab-0b9e287e0784.mp4
-
-
+https://user-images.githubusercontent.com/87881922/167014541-a4d583fa-b3ed-4b64-a5bf-ef0ca71d22fb.mp4
 
 ## $RISE: The Original Buyback Token Powering The EverRise Ecosystem
 
