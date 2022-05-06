@@ -14,8 +14,8 @@ Stake your RISE holdings to earn a share of the tokens purchased through the aut
 
 ### EverRise token Contract 
 
-* [EverRise_flat.sol](blob/main/EverRise_flat.sol) : EverRise token contract
-* EverRiseAvax_flat.sol : EverRise token contract (Changes for TraderJoe dex)
+* [EverRise_flat.sol](EverRise_flat.sol) : EverRise token contract
+* [EverRiseAvax_flat.sol](EverRiseAvax_flat.sol) : EverRise token contract (Changes for TraderJoe dex)
 
 # EverRise NFT Stakes
 
@@ -25,9 +25,9 @@ https://user-images.githubusercontent.com/87881922/167014915-d253e3eb-cc7f-435d-
 
 ### nftEverRise Staking NFTs, veRISE, claimRise Contract
 
-* nftEverRise_flat.sol : Stake NFTs, vote-escrowed RISE, and rewards RISE
-* EverRiseRendererGlyph_flat.sol: OnChain SVG animal glyphs
-* EverRiseRenderer_flat.sol: OnChain JSON attribute and SVG renderer 
+* [nftEverRise_flat.sol](nftEverRise_flat.sol): Stake NFTs, vote-escrowed RISE, and rewards RISE
+* [EverRiseRendererGlyph_flat.sol](EverRiseRendererGlyph_flat.sol): OnChain SVG animal glyphs
+* [EverRiseRenderer_flat.sol](EverRiseRenderer_flat.sol): OnChain JSON attribute and SVG renderer 
 
 [EverRise’s innovative staking protocol](https://everrise.com/everstake/) provides stakers with on-chain NFTs that securely store staking contracts directly within your DeFi wallet.
 
