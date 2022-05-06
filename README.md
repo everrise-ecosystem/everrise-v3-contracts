@@ -14,7 +14,7 @@ Stake your RISE holdings to earn a share of the tokens purchased through the aut
 
 ### EverRise token Contract 
 
-* EverRise_flat.sol : EverRise token contract
+* [EverRise_flat.sol](blob/main/EverRise_flat.sol) : EverRise token contract
 * EverRiseAvax_flat.sol : EverRise token contract (Changes for TraderJoe dex)
 
 # EverRise NFT Stakes
