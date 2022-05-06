@@ -54,5 +54,5 @@ The NFT Stake is the container of the RISE token and the veRISE governance token
 
 ### Supporting contracts
 
-EverRiseStats_flat.sol : [Live stats and pricing](https://data.everrise.com/stats.html) using Chainlink; also historic stats via archive nodes for the ecosystem
+[EverRiseStats_flat.sol](EverRiseStats_flat.sol): [Live stats and pricing](https://data.everrise.com/stats.html) using Chainlink; also historic stats via archive nodes for the ecosystem
 
